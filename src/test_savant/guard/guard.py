@@ -39,11 +39,12 @@ class Scanner:
 
 class TSGuard:
     
-    def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS):
+    def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         self.API_KEY = API_KEY
         self.PROJECT_ID = PROJECT_ID
         self.scanners = []
         self.remote_addr = remote_addr
+        self.fail_fast = fail_fast
     
     def add_scanner(self, scanner):
         self.scanners.append(scanner)
@@ -69,7 +70,7 @@ class TSGuard:
             "prompt": prompt,
             "config": {
                 "project_id": project_id,
-                "fail_fast": True,
+                "fail_fast": self.fail_fast,
                 "cache": {
                     "enabled": True,
                     "ttl": 3600
