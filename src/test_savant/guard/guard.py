@@ -64,6 +64,18 @@ class TSGuard:
             req_dict["output"] = output
         return req_dict
 
+    def make_request(self, data):
+        response = requests.post(
+            self.remote_addr,
+            headers={
+                'x-api-key': self.API_KEY,
+                'Content-Type': 'application/json'
+            },
+            data=data
+        )
+        if response.status_code != 200:
+            raise Exception(f"Request failed with status code {response.status_code}")
+        return response.json()
 
 class TSGuardInput(TSGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS):
@@ -72,17 +84,7 @@ class TSGuardInput(TSGuard):
         
     def scan(self, prompt):
         request_body = self._prepare_request_json(prompt, self.PROJECT_ID, self.scanners)
-        response = requests.post(
-            self.remote_addr,
-            headers={
-                'x-api-key': self.API_KEY,
-                'Content-Type': 'application/json'
-            },
-            data=json.dumps(request_body)
-        )
-        if response.status_code != 200:
-            raise Exception(f"Request failed with status code {response.status_code}")
-        return response.json()
+        return self.make_request(json.dumps(request_body))
     
 class TSGuardOutput(TSGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS):
@@ -91,14 +93,4 @@ class TSGuardOutput(TSGuard):
         
     def scan(self, prompt, output):
         request_body = self._prepare_request_json(prompt, self.PROJECT_ID, self.scanners, output=output)
-        response = requests.post(
-            self.remote_addr,
-            headers={
-                'x-api-key': self.API_KEY,
-                'Content-Type': 'application/json'
-            },
-            data=json.dumps(request_body)
-        )
-        if response.status_code != 200:
-            raise Exception(f"Request failed with status code {response.status_code}")
-        return response.json()    
+        return self.make_request(json.dumps(request_body))  
