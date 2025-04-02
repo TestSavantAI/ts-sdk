@@ -3,8 +3,8 @@ requires = ["setuptools>=40.6.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "test_savant"
-version = "0.0.2"
+name = "test_savant_sdk"
+version = "0.0.1"
 authors = [
   { name="Test Savant SDK", email="author@example.com" },
 ]
