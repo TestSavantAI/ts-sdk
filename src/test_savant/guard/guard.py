@@ -38,7 +38,7 @@ class Scanner:
 
 class TSGuard:
     
-    def __init__(self, API_KEY, PROJECT_ID, scan_mode = "input", remote_addr=REMOTE_TS_API_ADDRESS, ):
+    def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         """        
         scan_mode : str
             "input": analyzes prompts sent to the llm
@@ -48,47 +48,67 @@ class TSGuard:
             Base URL for the remote API endpoint.
             Default is https://api.testsavant.ai
         """
-
         self.API_KEY = API_KEY
         self.PROJECT_ID = PROJECT_ID
+        self.fail_fast = fail_fast
         self.scanners = []
-        if scan_mode not in ["input", "output"]:
-            raise ValueError(f"scan_mode must be either 'input' or 'output', got '{scan_mode}'")
-        if scan_mode == "input":
-            self.remote_addr = remote_addr + '/guard/prompt'
-        if scan_mode == "output":
-            self.remote_addr = remote_addr + '/guard/output'
-
+        self.remote_addr = remote_addr
+    
     def add_scanner(self, scanner):
         self.scanners.append(scanner)
-        
-    def scan(self, prompt):
-        # replace placeholders in the request json
-        request_body = self._prepare_request_json(prompt, self.PROJECT_ID, self.scanners)
-        # make the request
+
+    def _prepare_request_json(self, prompt, project_id, scanners, output = None):
+        req_dict = {
+            "prompt": prompt,
+            "config": {
+                "project_id": project_id,
+                "fail_fast": self.fail_fast,
+                "cache": {
+                    "enabled": True,
+                    "ttl": 3600
+                }  
+            },
+            "use": [scanner.to_dict() for scanner in scanners]
+        }
+        if output:
+            req_dict["output"] = output
+        return req_dict
+
+    def make_request(self, data):
         response = requests.post(
             self.remote_addr,
             headers={
                 'x-api-key': self.API_KEY,
                 'Content-Type': 'application/json'
             },
-            data=json.dumps(request_body)
+            data=data
         )
         if response.status_code != 200:
             raise Exception(f"Request failed with status code {response.status_code}")
         return response.json()
 
-    def _prepare_request_json(self, prompt, project_id, scanners):
-        req_dict = {
-            "prompt": prompt,
-            "config": {
-                "project_id": project_id,
-                "fail_fast": True,
-                "cache": {
-                    "enabled": True,
-                    "ttl": 3600
-                }
-            },
-            "use": [scanner.to_dict() for scanner in scanners]
-        }
-        return req_dict
+class TSGuardInput(TSGuard):
+    def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
+        super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
+        self.remote_addr = remote_addr + "/guard/prompt"
+        
+    def scan(self, prompt):
+        if len(self.scanners) == 0:
+            raise ValueError("No scanners have been added.")
+        if not prompt:
+            raise ValueError("Output must be provided for output scanning.")
+        request_body = self._prepare_request_json(prompt, self.PROJECT_ID, self.scanners)
+        return self.make_request(json.dumps(request_body))
+    
+class TSGuardOutput(TSGuard):
+    def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
+        super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
+        self.remote_addr = remote_addr + "/guard/output"
+        
+    def scan(self, prompt, output):
+        if len(self.scanners) == 0:
+            raise ValueError("No scanners have been added.")
+        if not prompt and not output:
+            raise ValueError("prompt and Output must be provided for output scanning.")
+        request_body = self._prepare_request_json(prompt, self.PROJECT_ID, self.scanners, output=output)
+        return self.make_request(json.dumps(request_body))  
