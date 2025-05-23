@@ -1,10 +1,13 @@
 from pydantic import BaseModel
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import json
 
 class ScannerResult(BaseModel):
-    label: Optional[str] = None
-    score: Optional[float] = None
+    sanitized_prompt: Optional[str] = None
+    is_valid: bool
+    scanners: Dict[str, float]
+    validity: Dict[str, bool]
+    file_names: Optional[Dict[str, Any]] = None
     
 
 class Scanner(BaseModel):

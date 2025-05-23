@@ -2,7 +2,7 @@ import json
 import requests
 from pydantic import BaseModel
 from typing import Dict, List, Optional
-from .input_scanners import Scanner
+from .input_scanners import Scanner, ScannerResult
 
 REMOTE_TS_API_ADDRESS = 'https://api.testsavant.ai'
 
@@ -73,7 +73,9 @@ class TSGuard:
         )
         if response.status_code != 200:
             raise Exception(f"Request failed with status code {response.status_code}")
-        return response.json()
+        
+        response_json = response.json()
+        return ScannerResult(**response_json)
 
 class TSGuardInput(TSGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
