@@ -1,5 +1,8 @@
 import json
 import requests
+from pydantic import BaseModel
+from typing import Dict, List, Optional
+from .input_scanners import Scanner
 
 REMOTE_TS_API_ADDRESS = 'https://api.testsavant.ai'
 
@@ -18,23 +21,6 @@ REQUEST_JSON = """
 }
 """.replace('\n', ' ')
 
-class Scanner:
-    
-    def __init__(self, name, type, params={}):
-        self.name = name
-        self.type = type
-        self.params = params
-    
-    def to_json(self):
-        params = json.dumps(self.params)
-        return f'{{"name": "{self.name}", "type": "{self.type}", "params": {params}}}'
-
-    def to_dict(self):
-        return {
-            "name": self.name,
-            "type": self.type,
-            "params": self.params
-        }
 
 class TSGuard:
     
@@ -51,13 +37,15 @@ class TSGuard:
         self.API_KEY = API_KEY
         self.PROJECT_ID = PROJECT_ID
         self.fail_fast = fail_fast
-        self.scanners = []
+        self.scanners: List[Scanner] = None
         self.remote_addr = remote_addr
     
-    def add_scanner(self, scanner):
+    def add_scanner(self, scanner: Scanner):
+        if self.scanners is None:
+            self.scanners = []
         self.scanners.append(scanner)
 
-    def _prepare_request_json(self, prompt, project_id, scanners, output = None):
+    def _prepare_request_json(self, prompt, project_id, scanners: List[Scanner], output = None):
         req_dict = {
             "prompt": prompt,
             "config": {
@@ -68,7 +56,7 @@ class TSGuard:
                     "ttl": 3600
                 }  
             },
-            "use": [scanner.to_dict() for scanner in scanners]
+            "use": [scanner.to_dict(request_only=True) for scanner in scanners]
         }
         if output:
             req_dict["output"] = output
@@ -90,10 +78,10 @@ class TSGuard:
 class TSGuardInput(TSGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
-        self.remote_addr = remote_addr + "/guard/prompt"
+        self.remote_addr = remote_addr + "/guard/prompt-input"
         
     def scan(self, prompt):
-        if len(self.scanners) == 0:
+        if self.scanners is None or len(self.scanners) == 0:
             raise ValueError("No scanners have been added.")
         if not prompt:
             raise ValueError("Output must be provided for output scanning.")
@@ -106,7 +94,7 @@ class TSGuardOutput(TSGuard):
         self.remote_addr = remote_addr + "/guard/output"
         
     def scan(self, prompt, output):
-        if len(self.scanners) == 0:
+        if self.scanners is None or len(self.scanners) == 0:
             raise ValueError("No scanners have been added.")
         if not prompt and not output:
             raise ValueError("prompt and Output must be provided for output scanning.")
