@@ -4,6 +4,6 @@ from .base_scanner import Scanner, ScannerResult
 import json
 
 class PromptInjection(Scanner):
-    threshold: confloat(ge=0.0, le=1.0) = 0.5
+    threshold: Optional[confloat(ge=0.0, le=1.0)] = None
     tag: Literal["tiny", "small", "base", "large"]
     result: Optional[ScannerResult] = None

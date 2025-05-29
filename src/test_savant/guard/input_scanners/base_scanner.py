@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 import json
 
 class ScannerResult(BaseModel):
@@ -19,7 +19,7 @@ class Scanner(BaseModel):
         name = f"{class_name}:{self.tag}"
         params = self.model_dump(exclude={"tag"})
         params = {k: v for k, v in params.items() if not k.startswith("_") and v is not None and k != "result"}
-        return {'name': name, 'params': params}
+        return {'name': name, 'params': params, 'type': class_name}
     
     def _serialize_all(self) -> Dict:
         class_name = self.__class__.__name__

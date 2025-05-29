@@ -1,7 +1,6 @@
 import json
 import requests
-from pydantic import BaseModel
-from typing import Dict, List, Optional
+from typing import  List
 from .input_scanners import Scanner, ScannerResult
 
 REMOTE_TS_API_ADDRESS = 'https://api.testsavant.ai'
@@ -80,7 +79,7 @@ class TSGuard:
 class TSGuardInput(TSGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
-        self.remote_addr = remote_addr + "/guard/prompt-input"
+        self.remote_addr = remote_addr + "/guard/unified-input"
         
     def scan(self, prompt):
         if self.scanners is None or len(self.scanners) == 0:
@@ -93,7 +92,7 @@ class TSGuardInput(TSGuard):
 class TSGuardOutput(TSGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
-        self.remote_addr = remote_addr + "/guard/output"
+        self.remote_addr = remote_addr + "/guard/unified-output"
         
     def scan(self, prompt, output):
         if self.scanners is None or len(self.scanners) == 0:
