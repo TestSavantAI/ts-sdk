@@ -79,9 +79,9 @@ class TSGuard:
 class TSGuardInput(TSGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
-        self.remote_addr = remote_addr + "/guard/unified-input"
+        self.remote_addr = remote_addr + "/guard/prompt-input"
         
-    def scan(self, prompt):
+    def scan(self, prompt: str):
         if self.scanners is None or len(self.scanners) == 0:
             raise ValueError("No scanners have been added.")
         if not prompt:
@@ -92,7 +92,7 @@ class TSGuardInput(TSGuard):
 class TSGuardOutput(TSGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
-        self.remote_addr = remote_addr + "/guard/unified-output"
+        self.remote_addr = remote_addr + "/guard/prompt-output"
         
     def scan(self, prompt, output):
         if self.scanners is None or len(self.scanners) == 0:

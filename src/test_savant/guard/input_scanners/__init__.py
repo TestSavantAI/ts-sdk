@@ -14,6 +14,7 @@ from .secrets import Secrets
 from .sentiment import Sentiment
 from .token_limit import TokenLimit
 from .toxicity import Toxicity
+from .nsfw import NSFW
 
 __all__ = [
     "Scanner",
@@ -32,5 +33,6 @@ __all__ = [
     "Secrets",
     "Sentiment",
     "TokenLimit",
-    "Toxicity"
+    "Toxicity",
+    "NSFW",
 ]

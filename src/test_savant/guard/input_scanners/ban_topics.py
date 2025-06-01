@@ -7,3 +7,4 @@ class BanTopics(Scanner):
     tag: Literal["small", "base", "large"]
     topics: Optional[list[str]] = None
     result: Optional[ScannerResult] = None
+    mode: Literal["whitelist", "blacklist"] = "whitelist"
