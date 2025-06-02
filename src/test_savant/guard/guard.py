@@ -3,6 +3,12 @@ import requests
 from typing import  List, Dict
 from .input_scanners import Scanner, ScannerResult
 import os
+import asyncio
+import inspect
+from typing import Any, Awaitable, Callable, Dict, Optional, Union
+import httpx
+
+Callback = Callable[[ScannerResult], Union[None, Awaitable[None]]]
 
 REMOTE_TS_API_ADDRESS = 'https://api.testsavant.ai'
 
@@ -73,13 +79,24 @@ class TSGuard:
             req_dict["output"] = output
         return req_dict
     
-    def make_request(self, data, url: str, files: List[str]=None):
+    def make_request(self, data, url: str, files: List[str]=None, async_mode: bool = False, callback: Optional[Callback] = None):
         if files is not None and len(files) > 0:
-            return self.make_multimodal_request(data, url, files)
+            return self.make_multimodal_request(data, url, files, async_mode=async_mode, callback=callback)
         else:
-            return self.make_text_request(data, url)
+            return self.make_text_request(data, url, async_mode=async_mode, callback=callback)
 
-    def make_text_request(self, data, url: str):
+    def make_text_request(self, data, url: str, async_mode: bool = False, callback: Optional[Callback] = None):
+        if async_mode:
+            return self.request_api(
+                url,
+                data=data,
+                headers={
+                    'x-api-key': self.API_KEY,
+                    'Content-Type': 'application/json'
+                },
+                async_mode=True,
+                callback=callback
+            )
         response = requests.post(
             url,
             headers={
@@ -94,8 +111,7 @@ class TSGuard:
         response_json = response.json()
         return ScannerResult(**response_json)
     
-    
-    def make_multimodal_request(self, data, url: str, files: List[str]):
+    def make_multimodal_request(self, data, url: str, files: List[str], async_mode: bool = False, callback: Optional[Callback] = None):
         # enure files is not None and is a list of file paths
         if files is None or len(files) == 0:
             raise ValueError("Files must be provided for multi-modal scanning.")
@@ -115,6 +131,18 @@ class TSGuard:
             file_name = os.path.basename(file_path)
             payload_files.append(('images', (file_name, open(file_path, 'rb'), image_type)))
         
+        if async_mode:
+            return self.request_api(
+                url,
+                data=data,
+                files=payload_files,
+                headers={
+                    'x-api-key': self.API_KEY
+                },
+                async_mode=True,
+                callback=callback
+            )
+
         response = requests.post(
             url,
             headers={
@@ -129,23 +157,94 @@ class TSGuard:
         
         response_json = response.json()
         return ScannerResult(**response_json)
+    
+    def request_api(self,
+        url: str,
+        *,
+        method: str = "POST",
+        data: Optional[Union[Dict[str, Any], str]] = None,
+        files: Optional[List[str]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        timeout: Optional[float] = 10,
+        async_mode: bool = False,
+        callback: Optional[Callback] = None,
+    ) -> Any:
+        """
+        Fetch *url* synchronously or asynchronously.
+        If *callback* is given it will be invoked with the result:
+            • sync branch  → called before returning
+            • async branch → awaited (if coroutine) or run, then result returned
+        """
+
+        def _maybe_call(cb: Callback, result: Any) -> None:
+            "Handle sync vs async callbacks transparently from either branch."
+            if inspect.iscoroutinefunction(cb):
+                # We’re in the sync branch → spin up a short event loop just for this.
+                asyncio.run(cb(result))
+            else:
+                cb(result)
+
+        async def _maybe_await(cb: Callback, result: Any) -> None:
+            "Async version of _maybe_call."
+            if inspect.iscoroutinefunction(cb):
+                await cb(result)
+            else:
+                cb(result)
+
+        if async_mode:                     # ---------- ASYNC branch ----------
+            async def _coroutine() -> Any:
+                async with httpx.AsyncClient() as client:
+                    if files is None or len(files) == 0:
+                        r = await client.request(method.upper(), url, data=data, headers=headers, timeout=timeout)
+                    else:
+                        files.insert(0, ('metadata', (None, data)))
+                        r = await client.request(method.upper(), url, files=files, headers=headers, timeout=timeout)
+                    
+                    r.raise_for_status()
+                    out = (
+                        ScannerResult(**r.json())
+                        if r.headers.get("Content-Type", "").startswith("application/json")
+                        else r.text
+                    )
+                    if callback:
+                        await _maybe_await(callback, out)
+                    return out
+
+            return _coroutine()            # caller must await
+
+        # ---------- SYNC branch ----------
+        with httpx.Client() as client:
+            if files is None:
+                r = client.request(method.upper(), url, data=data, headers=headers, timeout=timeout)
+            else:
+                r = client.request(method.upper(), url, data=data, files=files, headers=headers, timeout=timeout)
+            r.raise_for_status()
+            out = (
+                r.json()
+                if r.headers.get("Content-Type", "").startswith("application/json")
+                else r.text
+            )
+            if callback:
+                _maybe_call(callback, out)
+            return out
 
 class TSGuardInput(TSGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
         self.remote_addr = remote_addr
-        
-    def scan(self, prompt: str, *files: str):
+
+    
+    def scan(self, prompt: str, files: List[str]=None, sync_mode=False, callback: Callback = None) -> Union[ScannerResult, Any]:
         if self.scanners is None or len(self.scanners) == 0:
             raise ValueError("No scanners have been added.")
 
-        if not prompt and len(files) == 0:
+        if not prompt and (not files or len(files) == 0):
             raise ValueError("Either prompt or files must be provided for input scanning.")
-        
-        if len(files) > 0 and not all(isinstance(file, str) for file in files):
-            raise ValueError("Files must be a list of file paths.")
-        files = list(set(files))
-        if len(files) > 0:
+    
+        if files and len(files) > 0:
+            if len(files) > 0 and not all(isinstance(file, str) for file in files):
+                raise ValueError("Files must be a list of file paths.")
+            files = list(set(files))
             scanners_dict = self._scanners_to_dict(self.scanners, request_only=True, multimodal=True)
             url = f'{self.remote_addr}/guard/image-input'
         else:
@@ -153,7 +252,7 @@ class TSGuardInput(TSGuard):
             url = f'{self.remote_addr}/guard/prompt-input'
         
         request_body = self._prepare_request_json(prompt, self.PROJECT_ID, scanners_dict)
-        return self.make_request(json.dumps(request_body), url, files=files)
+        return self.make_request(json.dumps(request_body), url, files=files, async_mode=(not sync_mode), callback=callback)
     
     def fetch_image_results(self, image_file_names: List[str], download_dir='./scanned_images'):
         assert isinstance(image_file_names, list), "image_file_names must be a list of file names."
