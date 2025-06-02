@@ -1,7 +1,8 @@
 import json
 import requests
-from typing import  List
+from typing import  List, Dict
 from .input_scanners import Scanner, ScannerResult
+import os
 
 REMOTE_TS_API_ADDRESS = 'https://api.testsavant.ai'
 
@@ -44,7 +45,18 @@ class TSGuard:
             self.scanners = []
         self.scanners.append(scanner)
 
-    def _prepare_request_json(self, prompt, project_id, scanners: List[Scanner], output = None):
+    def _scanners_to_dict(self, scanners: List[Scanner], request_only=False, multimodal=False):
+        if scanners is None or len(scanners) == 0:
+            raise ValueError("No scanners have been added.")
+        scanners_dict = []
+        for scanner in scanners:
+            if not multimodal and "Image" in scanner.__class__.__name__:
+                continue
+            scanners_dict.append(scanner.to_dict(request_only=request_only))
+        
+        return scanners_dict
+
+    def _prepare_request_json(self, prompt, project_id, scanners: Dict, output = None, multimodal=False):
         req_dict = {
             "prompt": prompt,
             "config": {
@@ -55,15 +67,21 @@ class TSGuard:
                     "ttl": 3600
                 }  
             },
-            "use": [scanner.to_dict(request_only=True) for scanner in scanners]
+            "use": scanners
         }
         if output:
             req_dict["output"] = output
         return req_dict
+    
+    def make_request(self, data, url: str, files: List[str]=None):
+        if files is not None and len(files) > 0:
+            return self.make_multimodal_request(data, url, files)
+        else:
+            return self.make_text_request(data, url)
 
-    def make_request(self, data):
+    def make_text_request(self, data, url: str):
         response = requests.post(
-            self.remote_addr,
+            url,
             headers={
                 'x-api-key': self.API_KEY,
                 'Content-Type': 'application/json'
@@ -75,19 +93,100 @@ class TSGuard:
         
         response_json = response.json()
         return ScannerResult(**response_json)
+    
+    
+    def make_multimodal_request(self, data, url: str, files: List[str]):
+        # enure files is not None and is a list of file paths
+        if files is None or len(files) == 0:
+            raise ValueError("Files must be provided for multi-modal scanning.")
+        payload = {
+            'metadata': data
+        }
+        
+        payload_files = []
+        for file_path in files:
+            
+            if not os.path.exists(file_path):
+                raise ValueError(f"File {file_path} does not exist.")
+            
+            if not file_path.lower().endswith(('.png', '.jpg', '.jpeg')):
+                raise ValueError(f"File {file_path} is not a valid image type.")
+            image_type = 'image/jpeg' if file_path.lower().endswith(('.jpg', '.jpeg')) else 'image/png'
+            file_name = os.path.basename(file_path)
+            payload_files.append(('images', (file_name, open(file_path, 'rb'), image_type)))
+        
+        response = requests.post(
+            url,
+            headers={
+                'x-api-key': self.API_KEY
+            },
+            data=payload,
+            files=payload_files
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Request failed with status code {response.status_code}")
+        
+        response_json = response.json()
+        return ScannerResult(**response_json)
 
 class TSGuardInput(TSGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
-        self.remote_addr = remote_addr + "/guard/prompt-input"
+        self.remote_addr = remote_addr
         
-    def scan(self, prompt: str):
+    def scan(self, prompt: str, *files: str):
         if self.scanners is None or len(self.scanners) == 0:
             raise ValueError("No scanners have been added.")
-        if not prompt:
-            raise ValueError("Output must be provided for output scanning.")
-        request_body = self._prepare_request_json(prompt, self.PROJECT_ID, self.scanners)
-        return self.make_request(json.dumps(request_body))
+
+        if not prompt and len(files) == 0:
+            raise ValueError("Either prompt or files must be provided for input scanning.")
+        
+        if len(files) > 0 and not all(isinstance(file, str) for file in files):
+            raise ValueError("Files must be a list of file paths.")
+        files = list(set(files))
+        if len(files) > 0:
+            scanners_dict = self._scanners_to_dict(self.scanners, request_only=True, multimodal=True)
+            url = f'{self.remote_addr}/guard/image-input'
+        else:
+            scanners_dict = self._scanners_to_dict(self.scanners, request_only=True, multimodal=False)
+            url = f'{self.remote_addr}/guard/prompt-input'
+        
+        request_body = self._prepare_request_json(prompt, self.PROJECT_ID, scanners_dict)
+        return self.make_request(json.dumps(request_body), url, files=files)
+    
+    def fetch_image_results(self, image_file_names: List[str], download_dir='./scanned_images'):
+        assert isinstance(image_file_names, list), "image_file_names must be a list of file names."
+        if not image_file_names or len(image_file_names) == 0:
+            raise ValueError("No image file names provided.")
+        
+        if not os.path.exists(download_dir):
+            os.makedirs(download_dir)
+        
+        url = f"{self.remote_addr}/guard/files"
+        for fi, file_name in enumerate(image_file_names):
+            print(file_name)
+            response = requests.post(
+                url,
+                headers={'x-api-key': self.API_KEY},
+                json={
+                    "project_id": self.PROJECT_ID,
+                    "file_name": file_name
+                }
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Failed to fetch image results: {response.status_code}")
+        
+            image_data = response.content
+            file_path = os.path.join(download_dir, file_name)
+            try:
+                with open(file_path, 'wb') as f:
+                    f.write(image_data)
+            except Exception as e:
+                raise Exception(f"Failed to save image {file_name}: {str(e)}")
+
+        
     
 class TSGuardOutput(TSGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):

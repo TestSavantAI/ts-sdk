@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Dict, Optional, List
+from typing import Dict, Optional, Any, List
 import json
 
 class ScannerResult(BaseModel):
@@ -7,25 +7,27 @@ class ScannerResult(BaseModel):
     is_valid: bool
     scanners: Dict[str, float]
     validity: Dict[str, bool]
-    files: Optional[Dict[str, List[str]]] = None
+    file_names: Optional[Dict[str, Any]] = None
+    files: Optional[List[str]] = None
     
 
-class Scanner(BaseModel):
+class ImageScanner(BaseModel):
     tag: str
     result: Optional[ScannerResult] = None
+    files: Optional[List[str]] = None
 
     def _serialize_request(self) -> Dict:
         class_name = self.__class__.__name__
         name = f"{class_name}:{self.tag}"
         params = self.model_dump(exclude={"tag"})
-        params = {k: v for k, v in params.items() if not k.startswith("_") and v is not None and k != "result"}
+        params = {k: v for k, v in params.items() if not k.startswith("_") and v is not None and k not in ["result", "files"]}
         return {'name': name, 'params': params, 'type': class_name}
     
     def _serialize_all(self) -> Dict:
         class_name = self.__class__.__name__
         name = f"{class_name}:{self.tag}"
         params = self.model_dump(exclude={"tag"})
-        params = {k: v for k, v in params.items() if not k.startswith("_") and v is not None and k != "result"}
+        params = {k: v for k, v in params.items() if not k.startswith("_") and v is not None and k not in ["result", "files"]}
         return {'name': name, 'params': params, 'result': self.result.model_dump() if self.result else None}
     
     def json(self, request_only=False) -> str:
