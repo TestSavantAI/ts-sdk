@@ -201,8 +201,14 @@ class Guard:
                     if files is None or len(files) == 0:
                         r = await client.request(method.upper(), url, data=data, headers=headers, timeout=timeout)
                     else:
-                        files.insert(0, ('metadata', (None, data)))
-                        r = await client.request(method.upper(), url, files=files, headers=headers, timeout=timeout)
+                        files_to_send = [('metadata', (None, data))] + files
+                        r = await client.request(
+                            method.upper(),
+                            url,
+                            files=files_to_send,
+                            headers=headers,
+                            timeout=timeout,
+                        )
                     
                     r.raise_for_status()
                     out = (
@@ -293,14 +299,23 @@ class OutputGuard(InputGuard):
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
         self.remote_addr = remote_addr
         
-    def scan(self, prompt: str, output: str,  files: List[str]=None, is_async=False, callback: Callback = None) -> Union[ScannerResult, Any]:
+    def scan(
+        self,
+        prompt: Optional[str],
+        output: Optional[str],
+        files: List[str] = None,
+        is_async: bool = False,
+        callback: Callback = None,
+    ) -> Union[ScannerResult, Any]:
         if self.scanners is None or len(self.scanners) == 0:
             raise ValueError("No scanners have been added.")
 
-        if prompt is None and output is None:
+        if (not output and (not files or len(files) == 0)):
             raise ValueError("Either output or files must be provided for output scanning.")
 
         scanners_dict, requires_input = self._scanners_to_dict(self.scanners, request_only=True, multimodal=False)
+        if requires_input and not prompt:
+            raise ValueError("Prompt is required for one or more scanners.")
         url = f'{self.remote_addr}/guard/prompt-output'
         
         request_body = self._prepare_request_json(prompt=prompt, project_id=self.PROJECT_ID, scanners=scanners_dict, output=output)

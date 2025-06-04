@@ -4,6 +4,6 @@ __all__ = [
     'Scanner',
     'Guard', 
     'InputGuard', 
-    'OutputGuard', 
+    'OutputGuard',
     'ScannerResult'
     ]
