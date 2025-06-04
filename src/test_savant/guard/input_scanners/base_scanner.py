@@ -8,7 +8,6 @@ class ScannerResult(BaseModel):
     scanners: Dict[str, float]
     validity: Dict[str, bool]
     files: Optional[Dict[str, List[str]]] = None
-    
 
 class Scanner(BaseModel):
     tag: str
