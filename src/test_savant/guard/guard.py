@@ -60,7 +60,8 @@ class Guard:
             if not multimodal and "Image" in scanner.__class__.__name__:
                 continue
             scanners_dict.append(scanner.to_dict(request_only=request_only))
-            if scanner._requires_input_prompt:
+            # if scanner object has _requires_input_prompt attribute, check it
+            if hasattr(scanner, '_requires_input_prompt') and scanner._requires_input_prompt:
                 requires_input = True
 
         return scanners_dict, requires_input
@@ -248,10 +249,10 @@ class InputGuard(Guard):
             if len(files) > 0 and not all(isinstance(file, str) for file in files):
                 raise ValueError("Files must be a list of file paths.")
             files = list(set(files))
-            scanners_dict = self._scanners_to_dict(self.scanners, request_only=True, multimodal=True)
+            scanners_dict, _= self._scanners_to_dict(self.scanners, request_only=True, multimodal=True)
             url = f'{self.remote_addr}/guard/image-input'
         else:
-            scanners_dict = self._scanners_to_dict(self.scanners, request_only=True, multimodal=False)
+            scanners_dict, _ = self._scanners_to_dict(self.scanners, request_only=True, multimodal=False)
             url = f'{self.remote_addr}/guard/prompt-input'
         
         request_body = self._prepare_request_json(prompt, self.PROJECT_ID, scanners_dict)
@@ -304,5 +305,6 @@ class OutputGuard(InputGuard):
         url = f'{self.remote_addr}/guard/prompt-output'
         
         request_body = self._prepare_request_json(prompt=prompt, project_id=self.PROJECT_ID, scanners=scanners_dict, output=output)
+        
         return self.make_request(json.dumps(request_body), url, files=files, async_mode=is_async, callback=callback)
     
