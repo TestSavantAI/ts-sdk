@@ -9,3 +9,4 @@ class Anonymize(Scanner):
     preamble: Optional[str] = None
     tag: Literal["base", "large"]
     result: Optional[ScannerResult] = None
+    redact: bool = False

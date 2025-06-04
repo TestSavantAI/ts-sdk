@@ -256,6 +256,7 @@ class InputGuard(Guard):
             url = f'{self.remote_addr}/guard/prompt-input'
         
         request_body = self._prepare_request_json(prompt, self.PROJECT_ID, scanners_dict)
+        print(request_body)
         return self.make_request(json.dumps(request_body), url, files=files, async_mode=is_async, callback=callback)
     
     def fetch_image_results(self, image_file_names: List[str], download_dir='./scanned_images'):

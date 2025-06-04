@@ -38,3 +38,7 @@ class Scanner(BaseModel):
     def is_valid(self) -> bool:
         raise NotImplementedError("Subclasses should implement this method.")
 
+
+    @property
+    def name(self) -> str:
+        return f"{self.__class__.__name__}:{self.tag}"
