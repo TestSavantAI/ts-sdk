@@ -8,8 +8,11 @@ class ImageTextRedactor(ImageScanner):
     tag: Literal["base"]
     result: Optional[ScannerResult] = None
     nested_scanners: Optional[Dict[str, Dict]] = None
+    redact_text_type: Optional[Literal["all", "anonymizer"]] = "anonymizer"
+    shade_color: Optional[str] = None
 
     def add_text_scanner(self, scanner: Scanner):
+        assert type(scanner) != Scanner, f"Provide a Scanner, the current scanner is {type(scanner)}"
         if not self.nested_scanners:
             self.nested_scanners={}
         self.nested_scanners[scanner.name] = scanner.model_dump()

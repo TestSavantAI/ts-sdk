@@ -256,10 +256,9 @@ class InputGuard(Guard):
             url = f'{self.remote_addr}/guard/prompt-input'
         
         request_body = self._prepare_request_json(prompt, self.PROJECT_ID, scanners_dict)
-        print(request_body)
         return self.make_request(json.dumps(request_body), url, files=files, async_mode=is_async, callback=callback)
     
-    def fetch_image_results(self, image_file_names: List[str], download_dir='./scanned_images'):
+    def fetch_image_results(self, image_file_names: List[str], download_dir):
         assert isinstance(image_file_names, list), "image_file_names must be a list of file names."
         if not image_file_names or len(image_file_names) == 0:
             raise ValueError("No image file names provided.")
@@ -269,7 +268,6 @@ class InputGuard(Guard):
         
         url = f"{self.remote_addr}/guard/files"
         for fi, file_name in enumerate(image_file_names):
-            print(file_name)
             response = requests.post(
                 url,
                 headers={'x-api-key': self.API_KEY},
