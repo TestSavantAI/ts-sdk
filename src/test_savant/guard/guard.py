@@ -28,7 +28,7 @@ REQUEST_JSON = """
 """.replace('\n', ' ')
 
 
-class TSGuard:
+class Guard:
     
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         """        
@@ -55,12 +55,15 @@ class TSGuard:
         if scanners is None or len(scanners) == 0:
             raise ValueError("No scanners have been added.")
         scanners_dict = []
+        requires_input = False
         for scanner in scanners:
             if not multimodal and "Image" in scanner.__class__.__name__:
                 continue
             scanners_dict.append(scanner.to_dict(request_only=request_only))
-        
-        return scanners_dict
+            if scanner._requires_input_prompt:
+                requires_input = True
+
+        return scanners_dict, requires_input
 
     def _prepare_request_json(self, prompt, project_id, scanners: Dict, output = None, multimodal=False):
         req_dict = {
@@ -228,13 +231,13 @@ class TSGuard:
                 _maybe_call(callback, out)
             return out
 
-class TSGuardInput(TSGuard):
+class InputGuard(Guard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
         self.remote_addr = remote_addr
 
     
-    def scan(self, prompt: str, files: List[str]=None, sync_mode=False, callback: Callback = None) -> Union[ScannerResult, Any]:
+    def scan(self, prompt: str, files: List[str]=None, is_async=False, callback: Callback = None) -> Union[ScannerResult, Any]:
         if self.scanners is None or len(self.scanners) == 0:
             raise ValueError("No scanners have been added.")
 
@@ -252,7 +255,7 @@ class TSGuardInput(TSGuard):
             url = f'{self.remote_addr}/guard/prompt-input'
         
         request_body = self._prepare_request_json(prompt, self.PROJECT_ID, scanners_dict)
-        return self.make_request(json.dumps(request_body), url, files=files, async_mode=(not sync_mode), callback=callback)
+        return self.make_request(json.dumps(request_body), url, files=files, async_mode=is_async, callback=callback)
     
     def fetch_image_results(self, image_file_names: List[str], download_dir='./scanned_images'):
         assert isinstance(image_file_names, list), "image_file_names must be a list of file names."
@@ -285,17 +288,21 @@ class TSGuardInput(TSGuard):
             except Exception as e:
                 raise Exception(f"Failed to save image {file_name}: {str(e)}")
 
-        
-    
-class TSGuardOutput(TSGuard):
+class OutputGuard(InputGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
-        self.remote_addr = remote_addr + "/guard/prompt-output"
+        self.remote_addr = remote_addr
         
-    def scan(self, prompt, output):
+    def scan(self, prompt: str, output: str,  files: List[str]=None, is_async=False, callback: Callback = None) -> Union[ScannerResult, Any]:
         if self.scanners is None or len(self.scanners) == 0:
             raise ValueError("No scanners have been added.")
-        if not prompt and not output:
-            raise ValueError("prompt and Output must be provided for output scanning.")
-        request_body = self._prepare_request_json(prompt, self.PROJECT_ID, self.scanners, output=output)
-        return self.make_request(json.dumps(request_body))  
+
+        if prompt is None and output is None:
+            raise ValueError("Either output or files must be provided for output scanning.")
+
+        scanners_dict, requires_input = self._scanners_to_dict(self.scanners, request_only=True, multimodal=False)
+        url = f'{self.remote_addr}/guard/prompt-output'
+        
+        request_body = self._prepare_request_json(prompt=prompt, project_id=self.PROJECT_ID, scanners=scanners_dict, output=output)
+        return self.make_request(json.dumps(request_body), url, files=files, async_mode=is_async, callback=callback)
+    

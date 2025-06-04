@@ -4,5 +4,5 @@ from .base_scanner import Scanner, ScannerResult
 
 class Gibberish(Scanner):
     threshold: Optional[confloat(ge=0.0, le=1.0)] = None
-    tag: Literal["base"]
+    tag: Literal["base", "small-unified"]
     result: Optional[ScannerResult] = None

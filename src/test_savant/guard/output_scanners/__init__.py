@@ -20,6 +20,7 @@ from .sensitive import Sensitive
 from .sentiment import Sentiment
 from .toxicity import Toxicity
 from .url_reachability import URLReachability
+from .nsfw import NSFW
 
 __all__ = [
     "Scanner",
@@ -45,4 +46,5 @@ __all__ = [
     "Sentiment",
     "Toxicity",
     "URLReachability",
+    "NSFW"
 ]
