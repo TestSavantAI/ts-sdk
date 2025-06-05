@@ -29,7 +29,56 @@ REQUEST_JSON = """
 
 
 class Guard:
-    
+    """Guard is a class for managing and executing prompt and response scanning using various scanners, 
+    with support for both text and multimodal (image) inputs. It handles API requests to a remote 
+    scanning service, manages scanner configuration, and supports both synchronous and asynchronous 
+    operations.
+    Parameters
+    ----------
+    API_KEY : str
+        API key for authenticating requests to the remote scanning service.
+    PROJECT_ID : str
+        Identifier for the project context in which scanning is performed.
+        Base URL for the remote API endpoint. Defaults to REMOTE_TS_API_ADDRESS.
+    fail_fast : bool, optional
+        If True, scanning will stop at the first failure. Defaults to True.
+    Attributes
+    ----------
+    API_KEY : str
+        The API key used for authentication.
+    PROJECT_ID : str
+        The project identifier.
+    fail_fast : bool
+        Whether to stop scanning on the first failure.
+    scanners : List[Scanner] or None
+        List of scanner instances added to this Guard.
+    remote_addr : str
+        The remote API endpoint address.
+    Methods
+    -------
+    add_scanner(scanner: Scanner)
+        Add a scanner instance to the Guard.
+    _scanners_to_dict(scanners: List[Scanner], request_only=False, multimodal=False)
+        Convert scanners to a dictionary format for API requests.
+    _prepare_request_json(prompt, project_id, scanners: Dict, output=None, multimodal=False)
+        Prepare the JSON payload for API requests.
+    make_request(data, url: str, files: List[str]=None, async_mode: bool=False, callback: Optional[Callback]=None)
+        Make a request to the remote API, handling both text and multimodal inputs.
+    make_text_request(data, url: str, async_mode: bool=False, callback: Optional[Callback]=None)
+        Make a text-only request to the remote API.
+    make_multimodal_request(data, url: str, files: List[str], async_mode: bool=False, callback: Optional[Callback]=None)
+        Make a multimodal (image) request to the remote API.
+    request_api(url: str, *, method: str="POST", data: Optional[Union[Dict[str, Any], str]]=None, files: Optional[List[str]]=None, headers: Optional[Dict[str, str]]=None, timeout: Optional[float]=10, async_mode: bool=False, callback: Optional[Callback]=None)
+        Generic method for making synchronous or asynchronous API requests.
+    fetch_image_results(image_file_names: List[str], download_dir: str)
+        Download and save image results from the remote API.
+    Raises
+    ------
+    ValueError
+        If required parameters are missing or invalid.
+    Exception
+        For failed API requests or file operations.
+    """
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         """        
         scan_mode : str
@@ -47,6 +96,13 @@ class Guard:
         self.remote_addr = remote_addr
     
     def add_scanner(self, scanner: Scanner):
+        """
+        Adds a Scanner instance to the list of scanners.
+        If the scanners list is not initialized, it creates an empty list before appending the new scanner.
+        Args:
+            scanner (Scanner): The scanner instance to be added.
+        """
+        assert isinstance(scanner, Scanner), "Scanner must be an instance of Scanner class."
         if self.scanners is None:
             self.scanners = []
         self.scanners.append(scanner)
@@ -81,15 +137,15 @@ class Guard:
             req_dict["output"] = output
         return req_dict
     
-    def make_request(self, data, url: str, files: List[str]=None, async_mode: bool = False, callback: Optional[Callback] = None):
+    def _make_request(self, data, url: str, files: List[str]=None, async_mode: bool = False, callback: Optional[Callback] = None):
         if files is not None and len(files) > 0:
-            return self.make_multimodal_request(data, url, files, async_mode=async_mode, callback=callback)
+            return self._make_multimodal_request(data, url, files, async_mode=async_mode, callback=callback)
         else:
-            return self.make_text_request(data, url, async_mode=async_mode, callback=callback)
+            return self._make_text_request(data, url, async_mode=async_mode, callback=callback)
 
-    def make_text_request(self, data, url: str, async_mode: bool = False, callback: Optional[Callback] = None):
+    def _make_text_request(self, data, url: str, async_mode: bool = False, callback: Optional[Callback] = None):
         if async_mode:
-            return self.request_api(
+            return self._request_api_async_mode(
                 url,
                 data=data,
                 headers={
@@ -113,7 +169,7 @@ class Guard:
         response_json = response.json()
         return ScannerResult(**response_json)
     
-    def make_multimodal_request(self, data, url: str, files: List[str], async_mode: bool = False, callback: Optional[Callback] = None):
+    def _make_multimodal_request(self, data, url: str, files: List[str], async_mode: bool = False, callback: Optional[Callback] = None):
         # enure files is not None and is a list of file paths
         if files is None or len(files) == 0:
             raise ValueError("Files must be provided for multi-modal scanning.")
@@ -134,7 +190,7 @@ class Guard:
             payload_files.append(('images', (file_name, open(file_path, 'rb'), image_type)))
         
         if async_mode:
-            return self.request_api(
+            return self._request_api_async_mode(
                 url,
                 data=data,
                 files=payload_files,
@@ -160,7 +216,7 @@ class Guard:
         response_json = response.json()
         return ScannerResult(**response_json)
     
-    def request_api(self,
+    def _request_api_async_mode(self,
         url: str,
         *,
         method: str = "POST",
@@ -168,7 +224,6 @@ class Guard:
         files: Optional[List[str]] = None,
         headers: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = 10,
-        async_mode: bool = False,
         callback: Optional[Callback] = None,
     ) -> Any:
         """
@@ -193,50 +248,51 @@ class Guard:
             else:
                 cb(result)
 
-        if async_mode:                     # ---------- ASYNC branch ----------
-            async def _coroutine() -> Any:
-                async with httpx.AsyncClient() as client:
-                    if files is None or len(files) == 0:
-                        r = await client.request(method.upper(), url, data=data, headers=headers, timeout=timeout)
-                    else:
-                        files_to_send = [('metadata', (None, data))] + files
-                        r = await client.request(
-                            method.upper(),
-                            url,
-                            files=files_to_send,
-                            headers=headers,
-                            timeout=timeout,
-                        )
-                    
-                    r.raise_for_status()
-                    out = (
-                        ScannerResult(**r.json())
-                        if r.headers.get("Content-Type", "").startswith("application/json")
-                        else r.text
+        async def _coroutine() -> Any:
+            async with httpx.AsyncClient() as client:
+                if files is None or len(files) == 0:
+                    r = await client.request(method.upper(), url, data=data, headers=headers, timeout=timeout)
+                else:
+                    files_to_send = [('metadata', (None, data))] + files
+                    r = await client.request(
+                        method.upper(),
+                        url,
+                        files=files_to_send,
+                        headers=headers,
+                        timeout=timeout,
                     )
-                    if callback:
-                        await _maybe_await(callback, out)
-                    return out
+                
+                r.raise_for_status()
+                out = (
+                    ScannerResult(**r.json())
+                    if r.headers.get("Content-Type", "").startswith("application/json")
+                    else r.text
+                )
+                if callback:
+                    await _maybe_await(callback, out)
+                return out
 
-            return _coroutine()            # caller must await
+        return _coroutine()            # caller must await
 
-        # ---------- SYNC branch ----------
-        with httpx.Client() as client:
-            if files is None:
-                r = client.request(method.upper(), url, data=data, headers=headers, timeout=timeout)
-            else:
-                r = client.request(method.upper(), url, data=data, files=files, headers=headers, timeout=timeout)
-            r.raise_for_status()
-            out = (
-                r.json()
-                if r.headers.get("Content-Type", "").startswith("application/json")
-                else r.text
-            )
-            if callback:
-                _maybe_call(callback, out)
-            return out
+
         
     def fetch_image_results(self, image_file_names: List[str], download_dir: str):
+        """
+        Downloads image files from a remote server and saves them to a specified directory.
+        Args:
+            image_file_names (List[str]): A list of image file names to fetch from the server.
+            download_dir (str): The directory where the downloaded images will be saved.
+        Raises:
+            AssertionError: If `image_file_names` is not a list or contains non-string elements.
+            ValueError: If `image_file_names` is empty.
+            Exception: If the server response is not successful or if saving an image fails.
+        Notes:
+            - The method sends a POST request for each image file name to the remote server.
+            - The server endpoint is constructed using `self.remote_addr` and expects an API key and project ID.
+            - If the download directory does not exist, it will be created.
+        """
+
+
         assert isinstance(image_file_names, list), "image_file_names must be a list of file names."
         if not image_file_names:
             raise ValueError("No image file names provided.")
@@ -268,7 +324,38 @@ class Guard:
                 raise Exception(f"Failed to save image {file_name}: {str(e)}")
             
 class InputGuard(Guard):
+    """
+    InputGuard is a subclass of Guard that provides input validation and scanning functionality for prompts and files.
+    Args:
+        API_KEY (str): The API key used for authentication.
+        PROJECT_ID (str): The project identifier.
+        remote_addr (str, optional): The remote address of the TS API. Defaults to REMOTE_TS_API_ADDRESS.
+        fail_fast (bool, optional): Whether to fail fast on errors. Defaults to True.
+    Methods:
+        scan(prompt: str, files: List[str]=None, is_async=False, callback: Callback=None) -> Union[ScannerResult, Any]:
+            Scans the provided prompt and/or files using the configured scanners.
+            Args:
+                prompt (str): The input prompt to scan.
+                files (List[str], optional): List of file paths to scan. Defaults to None.
+                is_async (bool, optional): Whether to perform the scan asynchronously. Defaults to False.
+                callback (Callback, optional): Callback function to be called with the result if async. Defaults to None.
+            Returns:
+                Union[ScannerResult, Any]: The result of the scan, or the async task if is_async is True.
+            Raises:
+                ValueError: If no scanners have been added, or if neither prompt nor files are provided.
+                AssertionError: If files is not a list of strings.
+    """
+
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
+        """
+        Initializes the Guard class with the provided API key, project ID, and optional parameters.
+        Args:
+            API_KEY (str): The API key used for authentication.
+            PROJECT_ID (str): The identifier for the project.
+            remote_addr (str, optional): The remote address of the TS API. Defaults to REMOTE_TS_API_ADDRESS.
+            fail_fast (bool, optional): If True, initialization will fail immediately on errors. Defaults to True.
+        """
+
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
         self.remote_addr = remote_addr
 
@@ -277,7 +364,22 @@ class InputGuard(Guard):
              files: List[str]=None, 
              is_async=False, callback: 
              Callback = None) -> Union[ScannerResult, Any]:
-        if self.scanners is None or len(self.scanners) == 0:
+        """
+        Scans the provided prompt and/or files using the configured scanners.
+        Args:
+            prompt (str): The input text prompt to be scanned.
+            files (List[str], optional): A list of file paths to be scanned. Defaults to None.
+            is_async (bool, optional): Whether to perform the scan asynchronously. Defaults to False.
+            callback (Callback, optional): A callback function to be called upon completion (used if is_async is True). Defaults to None.
+        Returns:
+            Union[ScannerResult, Any]: The result of the scan operation. Returns a ScannerResult object for synchronous calls,
+            or any type as defined by the callback for asynchronous calls.
+        Raises:
+            ValueError: If no scanners have been added, or if neither prompt nor files are provided.
+            AssertionError: If files is not a list of strings.
+        """
+
+        if not self.scanners:
             raise ValueError("No scanners have been added.")
 
         if not prompt and not files:
@@ -294,11 +396,41 @@ class InputGuard(Guard):
             url = f'{self.remote_addr}/guard/prompt-input'
         
         request_body = self._prepare_request_json(prompt, self.PROJECT_ID, scanners_dict)
-        return self.make_request(json.dumps(request_body), url, files=files, async_mode=is_async, callback=callback)
+        return self._make_request(json.dumps(request_body), url, files=files, async_mode=is_async, callback=callback)
     
 
 class OutputGuard(InputGuard):
+    """
+    OutputGuard is a subclass of InputGuard designed to scan and validate the outputs of language models using configured scanners.
+    Args:
+        API_KEY (str): The API key used for authentication.
+        PROJECT_ID (str): The project identifier.
+        remote_addr (str, optional): The remote address of the TS API. Defaults to REMOTE_TS_API_ADDRESS.
+        fail_fast (bool, optional): If True, scanning will stop at the first failure. Defaults to True.
+    Methods:
+        scan(prompt: Optional[str], output: Optional[str], is_async: bool = False, callback: Callback = None) -> Union[ScannerResult, Any]:
+            Scans the provided LLM output (and optionally the input prompt) using the configured scanners.
+            Args:
+                prompt (Optional[str]): The input prompt associated with the LLM output, if required by scanners.
+                output (Optional[str]): The LLM output to be scanned.
+                is_async (bool, optional): If True, the scan will be performed asynchronously. Defaults to False.
+                callback (Callback, optional): A callback function to be invoked with the scan result in async mode.
+            Returns:
+                Union[ScannerResult, Any]: The result of the scan, or the async task if is_async is True.
+            Raises:
+                ValueError: If no scanners have been added or if required input prompt is missing.
+    """
+
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
+        """
+        Initializes the Guard class with API credentials and configuration options.
+        Args:
+            API_KEY (str): The API key used for authentication.
+            PROJECT_ID (str): The project identifier.
+            remote_addr (str, optional): The remote API address. Defaults to REMOTE_TS_API_ADDRESS.
+            fail_fast (bool, optional): If True, initialization will fail immediately on errors. Defaults to True.
+        """
+
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
         self.remote_addr = remote_addr
         
@@ -309,7 +441,21 @@ class OutputGuard(InputGuard):
         is_async: bool = False,
         callback: Callback = None,
     ) -> Union[ScannerResult, Any]:
-        if self.scanners is None or len(self.scanners) == 0:
+        
+        """
+        Scans the provided prompt and/or output using the configured scanners.
+        Args:
+            prompt (Optional[str]): The input prompt to be scanned. Required if any scanner needs the input prompt.
+            output (Optional[str]): The output (e.g., LLM response) to be scanned.
+            is_async (bool, optional): Whether to perform the scan asynchronously. Defaults to False.
+            callback (Callback, optional): A callback function to be invoked if running asynchronously.
+        Returns:
+            Union[ScannerResult, Any]: The result of the scan operation, or the asynchronous request handle if is_async is True.
+        Raises:
+            ValueError: If no scanners have been added, or if required input prompt is missing.
+        """
+
+        if not self.scanners:
             raise ValueError("No scanners have been added.")
 
         scanners_dict, requires_input_prompt = self._scanners_to_dict(self.scanners, request_only=True, multimodal=False)
@@ -320,5 +466,5 @@ class OutputGuard(InputGuard):
         
         request_body = self._prepare_request_json(prompt=prompt, project_id=self.PROJECT_ID, scanners=scanners_dict, output=output)
         
-        return self.make_request(json.dumps(request_body), url, async_mode=is_async, callback=callback)
+        return self._make_request(json.dumps(request_body), url, async_mode=is_async, callback=callback)
     

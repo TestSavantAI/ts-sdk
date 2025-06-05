@@ -3,7 +3,6 @@ from typing import Literal, Optional, Dict
 from ..input_scanners.base_scanner import Scanner, ScannerResult
 
 class ImageTextRedactor(Scanner):
-    threshold: Optional[confloat(ge=0.0, le=1.0)] = None
     tag: Literal["base"]
     result: Optional[ScannerResult] = None
     nested_scanners: Optional[Dict[str, Dict]] = None
@@ -11,7 +10,7 @@ class ImageTextRedactor(Scanner):
     shade_color: Optional[str] = None
 
     def add_text_scanner(self, scanner: Scanner):
-        assert type(scanner) != Scanner, f"Provide a Scanner, the current scanner is {type(scanner)}"
+        assert isinstance(scanner, Scanner), "scanner must be an instance of Scanner"
         if not self.nested_scanners:
             self.nested_scanners={}
         self.nested_scanners[scanner.name] = scanner.model_dump()
