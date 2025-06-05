@@ -1,4 +1,3 @@
-from .base_scanner import Scanner, ScannerResult
 from .ban_code import BanCode
 from .ban_competitors import BanCompetitors
 from .ban_substrings import BanSubstrings
@@ -23,8 +22,6 @@ from .url_reachability import URLReachability
 from .nsfw import NSFW
 
 __all__ = [
-    "Scanner",
-    "ScannerResult",
     "BanCode",
     "BanCompetitors",
     "BanSubstrings",

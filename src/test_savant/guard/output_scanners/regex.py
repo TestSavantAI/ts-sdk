@@ -1,5 +1,5 @@
 from typing import Literal, Optional
-from .base_scanner import Scanner, ScannerResult
+from ..input_scanners.base_scanner import Scanner, ScannerResult
 
 class Regex(Scanner):
     patterns: Optional[list[str]] = None

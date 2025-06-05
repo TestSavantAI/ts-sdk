@@ -1,6 +1,6 @@
 from pydantic import confloat
 from typing import Literal, Optional, Dict
-from .base_scanner import Scanner, ScannerResult
+from ..input_scanners.base_scanner import Scanner, ScannerResult
 import json
 
 class Relevance(Scanner):

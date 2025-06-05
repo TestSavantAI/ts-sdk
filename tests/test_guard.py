@@ -115,3 +115,49 @@ def test_input_guard_errors(monkeypatch):
         assert False, "expected ValueError when no prompt and files"
 
     assert ig.scan(prompt="hello") == "ok"
+
+def test_input_guard_empty_prompt_and_files(monkeypatch):
+    ig = InputGuard("k", "p")
+    ig.add_scanner(DummyScanner())
+    def dummy_make_request(*a, **kw):
+        return "should not be called"
+    monkeypatch.setattr(Guard, "make_request", dummy_make_request)
+    # Both prompt and files empty
+    try:
+        ig.scan(prompt="", files=[])
+    except ValueError as e:
+        assert "Either prompt or files must be provided" in str(e)
+    else:
+        assert False, "expected ValueError when both prompt and files are empty"
+
+def test_input_guard_empty_files(monkeypatch):
+    ig = InputGuard("k", "p")
+    ig.add_scanner(DummyScanner())
+    def dummy_make_request(*a, **kw):
+        return "ok"
+    monkeypatch.setattr(Guard, "make_request", dummy_make_request)
+    # Prompt provided, files empty
+    assert ig.scan(prompt="test", files=[]) == "ok"
+
+def test_output_guard_empty_output_and_files(monkeypatch):
+    og = OutputGuard("k", "p")
+    og.add_scanner(DummyScanner())
+    def dummy_make_request(*a, **kw):
+        return "should not be called"
+    monkeypatch.setattr(Guard, "make_request", dummy_make_request)
+    # Both output and files empty
+    try:
+        og.scan(prompt="prompt", output=None, files=None)
+    except ValueError as e:
+        assert "Either output or files must be provided" in str(e)
+    else:
+        assert False, "expected ValueError when both output and files are empty"
+
+def test_output_guard_empty_files(monkeypatch):
+    og = OutputGuard("k", "p")
+    og.add_scanner(DummyScanner())
+    def dummy_make_request(*a, **kw):
+        return "ok"
+    monkeypatch.setattr(Guard, "make_request", dummy_make_request)
+    # Output provided, files empty
+    assert og.scan(prompt="prompt", output="output", files=[]) == "ok"

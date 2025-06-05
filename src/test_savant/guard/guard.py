@@ -55,15 +55,13 @@ class Guard:
         if scanners is None or len(scanners) == 0:
             raise ValueError("No scanners have been added.")
         scanners_dict = []
-        requires_input = False
+        requires_input = set()
         for scanner in scanners:
             if not multimodal and "Image" in scanner.__class__.__name__:
                 continue
             scanners_dict.append(scanner.to_dict(request_only=request_only))
-            # if scanner object has _requires_input_prompt attribute, check it
             if hasattr(scanner, '_requires_input_prompt') and scanner._requires_input_prompt:
-                requires_input = True
-
+                requires_input.add(scanner.__class__.__name__)
         return scanners_dict, requires_input
 
     def _prepare_request_json(self, prompt, project_id, scanners: Dict, output = None, multimodal=False):
@@ -237,38 +235,13 @@ class Guard:
             if callback:
                 _maybe_call(callback, out)
             return out
-
-class InputGuard(Guard):
-    def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
-        super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
-        self.remote_addr = remote_addr
-
-    
-    def scan(self, prompt: str, files: List[str]=None, is_async=False, callback: Callback = None) -> Union[ScannerResult, Any]:
-        if self.scanners is None or len(self.scanners) == 0:
-            raise ValueError("No scanners have been added.")
-
-        if not prompt and (not files or len(files) == 0):
-            raise ValueError("Either prompt or files must be provided for input scanning.")
-    
-        if files and len(files) > 0:
-            if len(files) > 0 and not all(isinstance(file, str) for file in files):
-                raise ValueError("Files must be a list of file paths.")
-            files = list(set(files))
-            scanners_dict, _= self._scanners_to_dict(self.scanners, request_only=True, multimodal=True)
-            url = f'{self.remote_addr}/guard/image-input'
-        else:
-            scanners_dict, _ = self._scanners_to_dict(self.scanners, request_only=True, multimodal=False)
-            url = f'{self.remote_addr}/guard/prompt-input'
         
-        request_body = self._prepare_request_json(prompt, self.PROJECT_ID, scanners_dict)
-        return self.make_request(json.dumps(request_body), url, files=files, async_mode=is_async, callback=callback)
-    
-    def fetch_image_results(self, image_file_names: List[str], download_dir):
+    def fetch_image_results(self, image_file_names: List[str], download_dir: str):
         assert isinstance(image_file_names, list), "image_file_names must be a list of file names."
-        if not image_file_names or len(image_file_names) == 0:
+        if not image_file_names:
             raise ValueError("No image file names provided.")
-        
+        assert all(isinstance(name, str) for name in image_file_names), "All file names must be strings."
+
         if not os.path.exists(download_dir):
             os.makedirs(download_dir)
         
@@ -293,6 +266,36 @@ class InputGuard(Guard):
                     f.write(image_data)
             except Exception as e:
                 raise Exception(f"Failed to save image {file_name}: {str(e)}")
+            
+class InputGuard(Guard):
+    def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
+        super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
+        self.remote_addr = remote_addr
+
+    
+    def scan(self, prompt: str, 
+             files: List[str]=None, 
+             is_async=False, callback: 
+             Callback = None) -> Union[ScannerResult, Any]:
+        if self.scanners is None or len(self.scanners) == 0:
+            raise ValueError("No scanners have been added.")
+
+        if not prompt and not files:
+            raise ValueError("Either prompt or files must be provided for input scanning.")
+        
+        assert files is None or (isinstance(files, list) and all(isinstance(file, str) for file in files)), "Files must be a list of file paths."
+
+        if files:
+            files = list(set(files))
+            scanners_dict, _= self._scanners_to_dict(self.scanners, request_only=True, multimodal=True)
+            url = f'{self.remote_addr}/guard/image-input'
+        else:
+            scanners_dict, _ = self._scanners_to_dict(self.scanners, request_only=True, multimodal=False)
+            url = f'{self.remote_addr}/guard/prompt-input'
+        
+        request_body = self._prepare_request_json(prompt, self.PROJECT_ID, scanners_dict)
+        return self.make_request(json.dumps(request_body), url, files=files, async_mode=is_async, callback=callback)
+    
 
 class OutputGuard(InputGuard):
     def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
@@ -303,22 +306,19 @@ class OutputGuard(InputGuard):
         self,
         prompt: Optional[str],
         output: Optional[str],
-        files: List[str] = None,
         is_async: bool = False,
         callback: Callback = None,
     ) -> Union[ScannerResult, Any]:
         if self.scanners is None or len(self.scanners) == 0:
             raise ValueError("No scanners have been added.")
 
-        if (not output and (not files or len(files) == 0)):
-            raise ValueError("Either output or files must be provided for output scanning.")
-
-        scanners_dict, requires_input = self._scanners_to_dict(self.scanners, request_only=True, multimodal=False)
-        if requires_input and not prompt:
-            raise ValueError("Prompt is required for one or more scanners.")
+        scanners_dict, requires_input_prompt = self._scanners_to_dict(self.scanners, request_only=True, multimodal=False)
+        if requires_input_prompt and not prompt:
+            raise ValueError(f"Input scanners {requires_input_prompt} require a input prompt along with LLM output for output scanning.")
+        
         url = f'{self.remote_addr}/guard/prompt-output'
         
         request_body = self._prepare_request_json(prompt=prompt, project_id=self.PROJECT_ID, scanners=scanners_dict, output=output)
         
-        return self.make_request(json.dumps(request_body), url, files=files, async_mode=is_async, callback=callback)
+        return self.make_request(json.dumps(request_body), url, async_mode=is_async, callback=callback)
     
