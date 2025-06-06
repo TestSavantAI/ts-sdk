@@ -1,3 +1,9 @@
-from .guard import Scanner, TSGuard, TSGuardInput, TSGuardOutput
+from .guard import Scanner, Guard, InputGuard, OutputGuard, ScannerResult
 
-__all__ = ['Scanner', 'TSGuard', 'TSGuardInput', 'TSGuardOutput']
+__all__ = [
+    'Scanner',
+    'Guard', 
+    'InputGuard', 
+    'OutputGuard',
+    'ScannerResult'
+    ]
