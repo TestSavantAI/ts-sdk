@@ -95,6 +95,14 @@ class Guard:
         self.scanners: List[Scanner] = None
         self.remote_addr = remote_addr
     
+    # remove all scanners
+    def remove_all_scanners(self):
+        """
+        Removes all scanners from the Guard instance.
+        This method clears the list of scanners, effectively resetting the Guard.
+        """
+        self.scanners = None
+
     def add_scanner(self, scanner: Scanner):
         """
         Adds a Scanner instance to the list of scanners.
@@ -381,9 +389,10 @@ class InputGuard(Guard):
 
         if not self.scanners:
             raise ValueError("No scanners have been added.")
-
-        if not prompt and not files:
-            raise ValueError("Either prompt or files must be provided for input scanning.")
+        
+        if type(prompt) is not str and (type(files) is not list or len(files) == 0):
+            num_files = len(files) if files else 0
+            raise ValueError(f"No scanners have been added, and no prompt or files provided for scanning. prompt: {type(prompt)}, files: {type(files)}, num_files: {num_files}")
         
         assert files is None or (isinstance(files, list) and all(isinstance(file, str) for file in files)), "Files must be a list of file paths."
 
