@@ -208,7 +208,6 @@ class Guard:
                 async_mode=True,
                 callback=callback
             )
-
         response = requests.post(
             url,
             headers={
