@@ -1,5 +1,5 @@
 [project]
-name = "test_savant_sdk"
+name = "testsavant-sdk"
 version = "0.0.1"
 license = "Apache-2.0"
 authors = [
@@ -22,8 +22,7 @@ classifiers = [
   "Operating System :: MacOS",
   "Operating System :: POSIX :: Linux",
   "Operating System :: Microsoft :: Windows",
-  "Topic :: Software Development :: Libraries :: Python Modules",
-  "License :: OSI Approved :: Apache Software License"
+  "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 dependencies = [
   "httpx==0.28.1",

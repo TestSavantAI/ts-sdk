@@ -1,5 +1,5 @@
-from test_savant.guard import TSGuard, Scanner, TSGuardInput, ScannerResult
-from test_savant.guard.input_scanners import PromptInjection
+from testsavant.guard import TSGuard, Scanner, TSGuardInput, ScannerResult
+from testsavant.guard.input_scanners import PromptInjection
 import os
 import asyncio
 
