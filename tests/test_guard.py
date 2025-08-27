@@ -9,7 +9,7 @@ fake_httpx.AsyncClient = object
 fake_httpx.Client = object
 sys.modules.setdefault("httpx", fake_httpx)
 
-from test_savant.guard import Guard, InputGuard, OutputGuard
+from testsavant.guard import Guard, InputGuard, OutputGuard
 
 class DummyScanner:
     def __init__(self, requires_prompt=False):

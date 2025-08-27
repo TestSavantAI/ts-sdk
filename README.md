@@ -18,7 +18,7 @@ To use the SDK, you need to provide your API key and Project ID. You can get the
 
 ```python
 import os
-from test_savant.guard import InputGuard, OutputGuard
+from testsavant.guard import InputGuard, OutputGuard
 
 # It's recommended to set these as environment variables
 # os.environ["TEST_SAVANT_API_KEY"] = "YOUR_API_KEY"
@@ -43,7 +43,7 @@ Use `InputGuard` to scan user inputs for potential risks before sending them to 
 You can scan text prompts for various risks like prompt injection, toxicity, and gibberish.
 
 ```python
-from test_savant.guard.input_scanners import PromptInjection, Gibberish, Toxicity
+from testsavant.guard.input_scanners import PromptInjection, Gibberish, Toxicity
 
 # Add the scanners you want to use
 input_guard.add_scanner(PromptInjection(tag="base", threshold=0.5))
@@ -74,7 +74,7 @@ if not result.is_valid:
 You can also scan images for risks like NSFW content.
 
 ```python
-from test_savant.guard.image_scanners import ImageNSFW
+from testsavant.guard.image_scanners import ImageNSFW
 
 # Use a separate guard instance or clear scanners for different use cases
 image_guard = InputGuard(API_KEY=api_key, PROJECT_ID=project_id)
@@ -95,7 +95,7 @@ else:
 Use `OutputGuard` to scan the responses from your LLM before sending them to the user. This helps ensure the output is safe, relevant, and free from bias.
 
 ```python
-from test_savant.guard.output_scanners import Toxicity, NoRefusal
+from testsavant.guard.output_scanners import Toxicity, NoRefusal
 
 # Add scanners for output validation
 output_guard.add_scanner(Toxicity(tag="base", threshold=0.5))

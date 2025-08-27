@@ -1,6 +1,6 @@
-from test_savant.guard import TSGuardInput
-from test_savant.guard.image_scanners import ImageTextRedactor
-from test_savant.guard.input_scanners import PromptInjection
+from testsavant.guard import TSGuardInput
+from testsavant.guard.image_scanners import ImageTextRedactor
+from testsavant.guard.input_scanners import PromptInjection
 import os
 
 long_article = open("docs/article.txt", "r").read()

@@ -1,7 +1,7 @@
 
-from test_savant.guard import TSGuardInput
-from test_savant.guard.image_scanners import ImageNSFW
-from test_savant.guard.input_scanners import PromptInjection
+from testsavant.guard import TSGuardInput
+from testsavant.guard.image_scanners import ImageNSFW
+from testsavant.guard.input_scanners import PromptInjection
 import os
 
 
