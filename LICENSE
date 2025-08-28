@@ -1,0 +1,23 @@
+Copyright 2025 Aspn LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this SDK except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+-----------------------------------------------------------------------
+
+ADDITIONAL USE RESTRICTION:
+
+This SDK is provided solely for the purpose of interacting with the
+TestSavant.AI API. Use of this SDK to access any other service,
+API, or system that is not provided by Aspn LLC is not
+permitted. Access to the TestSavant.AI API requires a valid API key
+and is governed separately by the Aspn LLC Terms of Service.
