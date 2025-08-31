@@ -4,6 +4,9 @@ from .base_scanner import Scanner, ScannerResult
 import json
 
 class PromptInjection(Scanner):
+    """
+        For all available tags, check: https://docs.testsavant.ai/docs/v1/python/input-scanners
+    """
     threshold: Optional[confloat(ge=0.0, le=1.0)] = None
-    tag: Literal["small", "base", "small-unified"]
+    tag: Literal["base"]
     result: Optional[ScannerResult] = None

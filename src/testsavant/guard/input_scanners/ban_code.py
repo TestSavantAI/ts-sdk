@@ -3,6 +3,9 @@ from typing import Literal, Optional
 from .base_scanner import Scanner, ScannerResult
 
 class BanCode(Scanner):
+    """
+        For all available tags, check: https://docs.testsavant.ai/docs/v1/python/input-scanners
+    """
     threshold: Optional[confloat(ge=0.0, le=1.0)] = None
-    tag: Literal["small", "base"]
+    tag: Literal["base"]
     result: Optional[ScannerResult] = None

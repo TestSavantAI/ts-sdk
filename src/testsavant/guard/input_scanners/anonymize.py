@@ -4,10 +4,13 @@ from .base_scanner import Scanner, ScannerResult
 import json
 
 class Anonymize(Scanner):
+    """
+        For all available tags, check: https://docs.testsavant.ai/docs/v1/python/input-scanners
+    """
     threshold: Optional[confloat(ge=0.0, le=1.0)] = None
     use_faker: Optional[bool] = None
     preamble: Optional[str] = None
-    tag: Literal["base", "large"]
+    tag: Literal["base"]
     result: Optional[ScannerResult] = None
     redact: bool = False
     entity_types:  List[Annotated[str, Literal[

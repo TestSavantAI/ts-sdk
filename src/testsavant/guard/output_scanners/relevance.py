@@ -4,7 +4,10 @@ from ..input_scanners.base_scanner import Scanner, ScannerResult
 import json
 
 class Relevance(Scanner):
+    """
+        For all available tags, check: https://docs.testsavant.ai/docs/v1/python/output-scanners
+    """
     threshold: Optional[confloat(ge=0.0, le=1.0)] = None
-    tag: Literal["small", "base", "large"]
+    tag: Literal["base"]
     result: Optional[ScannerResult] = None
     _requires_input_prompt: bool = True

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Dict, Optional, List
 import json
 
@@ -10,7 +10,11 @@ class ScannerResult(BaseModel):
     files: Optional[Dict[str, List[str]]] = None
 
 class Scanner(BaseModel):
-    tag: str
+    # tag: str
+    tag: str = Field(
+        ..., 
+        description="Scanner model tag. For available models, see: https://docs.testsavant.ai"
+    )
     result: Optional[ScannerResult] = None
 
     def _serialize_request(self) -> Dict:
