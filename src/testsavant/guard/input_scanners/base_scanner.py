@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 import json
 
 class ScannerResult(BaseModel):
@@ -8,6 +8,7 @@ class ScannerResult(BaseModel):
     scanners: Dict[str, float]
     validity: Dict[str, bool]
     files: Optional[Dict[str, List[str]]] = None
+    nested_scanners: Optional[Dict[str, Any]] = None
 
 class Scanner(BaseModel):
     # tag: str
