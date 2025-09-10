@@ -128,6 +128,64 @@ class Guard:
             if hasattr(scanner, '_requires_input_prompt') and scanner._requires_input_prompt:
                 requires_input.add(scanner.__class__.__name__)
         return scanners_dict, requires_input
+    
+    def get_available_scanners(self) -> Dict[str, Any]:
+        """
+        Retrieves all scanners available to the API key 
+        
+        Returns:
+            Dict[str, Any]: A dictionary containing:
+            - input_scanners (List[str]): List of available input scanners in "type:tag" format
+            - output_scanners (List[str]): List of available output scanners in "type:tag" format  
+            - plan_name (str): The name of the current subscription plan
+            
+            
+        Raises:
+            AuthenticationError: If the API key is invalid or inactive.
+            PermissionDeniedError: If the subscription is not active.
+            InternalServerError: For server errors.
+        """
+        url = f'{self.remote_addr}/scanners'
+        
+        response = requests.get(
+            url,
+            headers={
+                'X-API-Key': self.API_KEY
+            }
+        )
+        
+        response_json = self._safe_json_parse(response)
+        
+        if response.status_code == 401:
+            raise AuthenticationError(
+                message=self._get_error_message("Authentication failed", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 403:
+            raise PermissionDeniedError(
+                message=self._get_error_message("Permission denied", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 404:
+            raise NotFoundError(
+                message=self._get_error_message("Resource not found", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code >= 500:
+            raise InternalServerError(
+                message=f"Server error: {response.status_code}",
+                response=response,
+                body=response_json
+            )
+        
+        
+        return response_json
 
     def _prepare_request_json(self, prompt, project_id, scanners: Dict, output = None, multimodal=False):
         req_dict = {
