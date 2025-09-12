@@ -7,6 +7,7 @@ import asyncio
 import inspect
 from typing import Any, Awaitable, Callable, Dict, Optional, Union
 import httpx
+from ._exceptions import InternalServerError, PermissionDeniedError, BadRequestError, NotFoundError, ConflictError, RateLimitError, AuthenticationError, TsGuardError, UnprocessableEntityError
 
 Callback = Callable[[ScannerResult], Union[None, Awaitable[None]]]
 
@@ -127,6 +128,64 @@ class Guard:
             if hasattr(scanner, '_requires_input_prompt') and scanner._requires_input_prompt:
                 requires_input.add(scanner.__class__.__name__)
         return scanners_dict, requires_input
+    
+    def get_available_scanners(self) -> Dict[str, Any]:
+        """
+        Retrieves all scanners available to the API key 
+        
+        Returns:
+            Dict[str, Any]: A dictionary containing:
+            - input_scanners (List[str]): List of available input scanners in "type:tag" format
+            - output_scanners (List[str]): List of available output scanners in "type:tag" format  
+            - plan_name (str): The name of the current subscription plan
+            
+            
+        Raises:
+            AuthenticationError: If the API key is invalid or inactive.
+            PermissionDeniedError: If the subscription is not active.
+            InternalServerError: For server errors.
+        """
+        url = f'{self.remote_addr}/scanners'
+        
+        response = requests.get(
+            url,
+            headers={
+                'X-API-Key': self.API_KEY
+            }
+        )
+        
+        response_json = self._safe_json_parse(response)
+        
+        if response.status_code == 401:
+            raise AuthenticationError(
+                message=self._get_error_message("Authentication failed", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 403:
+            raise PermissionDeniedError(
+                message=self._get_error_message("Permission denied", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 404:
+            raise NotFoundError(
+                message=self._get_error_message("Resource not found", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code >= 500:
+            raise InternalServerError(
+                message=f"Server error: {response.status_code}",
+                response=response,
+                body=response_json
+            )
+        
+        
+        return response_json
 
     def _prepare_request_json(self, prompt, project_id, scanners: Dict, output = None, multimodal=False):
         req_dict = {
@@ -144,6 +203,27 @@ class Guard:
         if output:
             req_dict["output"] = output
         return req_dict
+    
+    def _safe_json_parse(self, response):
+        """Safely parse JSON response, return None if parsing fails."""
+        try:
+            return response.json()
+        except (ValueError, json.JSONDecodeError):
+            return {"error": "Invalid JSON response", "text": response.text[:500]}
+        
+    def _get_error_message(self, default_message, response_body):
+        """Extract error message from response body"""
+        if response_body and isinstance(response_body, dict):
+            message = response_body.get('message')
+            details = response_body.get('details')
+            
+            if message and details:
+                return f"{message} - {details}"
+            elif message:
+                return message
+            elif details:
+                return f"{default_message} - {details}"
+        return default_message  
     
     def _make_request(self, data, url: str, files: List[str]=None, async_mode: bool = False, callback: Optional[Callback] = None):
         if files is not None and len(files) > 0:
@@ -171,10 +251,65 @@ class Guard:
             },
             data=data
         )
-        if response.status_code != 200:
-            raise Exception(f"Request failed with status code {response.status_code}")
+        response_json = self._safe_json_parse(response)
+        if response.status_code == 400:
+            raise BadRequestError(
+                message=self._get_error_message("Bad request", response_json),
+                response=response,
+                body=response_json
+            )
         
-        response_json = response.json()
+        if response.status_code == 401:
+            raise AuthenticationError(
+                message=self._get_error_message("Authentication failed", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 403:
+            raise PermissionDeniedError(
+                message=self._get_error_message("Permission denied", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 404:
+            raise NotFoundError(
+                message=self._get_error_message("Resource not found", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 409:
+            raise ConflictError(
+                message=self._get_error_message("Conflict error", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 422:
+            raise UnprocessableEntityError(
+                message=self._get_error_message("Unprocessable entity", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 429:
+            raise RateLimitError(
+                message=self._get_error_message("Rate limit exceeded", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code >= 500:
+            raise InternalServerError(
+                message=f"Server error: {response.status_code}",
+                response=response,
+                body=response_json
+            )
+
+        
+        
         return ScannerResult(**response_json)
     
     def _make_multimodal_request(self, data, url: str, files: List[str], async_mode: bool = False, callback: Optional[Callback] = None):
@@ -217,10 +352,63 @@ class Guard:
             files=payload_files
         )
         
-        if response.status_code != 200:
-            raise Exception(f"Request failed with status code {response.status_code}")
+        response_json = self._safe_json_parse(response)
+        if response.status_code == 400:
+            raise BadRequestError(
+                message=self._get_error_message("Bad request", response_json),
+                response=response,
+                body=response_json
+            )
         
-        response_json = response.json()
+        if response.status_code == 401:
+            raise AuthenticationError(
+                message=self._get_error_message("Authentication failed", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 403:
+            raise PermissionDeniedError(
+                message=self._get_error_message("Permission denied", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 404:
+            raise NotFoundError(
+                message=self._get_error_message("Resource not found", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 409:
+            raise ConflictError(
+                message=self._get_error_message("Conflict error", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 422:
+            raise UnprocessableEntityError(
+                message=self._get_error_message("Unprocessable entity", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code == 429:
+            raise RateLimitError(
+                message=self._get_error_message("Rate limit exceeded", response_json),
+                response=response,
+                body=response_json
+            )
+        
+        if response.status_code >= 500:
+            raise InternalServerError(
+                message=f"Server error: {response.status_code}",
+                response=response,
+                body=response_json
+            )
+
         return ScannerResult(**response_json)
     
     def _request_api_async_mode(self,
