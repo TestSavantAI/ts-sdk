@@ -111,7 +111,7 @@ class Guard:
         Args:
             scanner (Scanner): The scanner instance to be added.
         """
-        assert isinstance(scanner, Scanner), "Scanner must be an instance of Scanner class."
+        assert isinstance(scanner, Scanner), f"Scanner must be an instance of Scanner class, got {type(scanner)}"
         if self.scanners is None:
             self.scanners = []
         self.scanners.append(scanner)
@@ -591,7 +591,7 @@ class InputGuard(Guard):
             ValueError: If no scanners have been added, or if neither prompt nor files are provided.
             AssertionError: If files is not a list of strings.
         """
-
+        assert isinstance(prompt, str), f"Prompt must be a string, got {type(prompt)}"
         if not self.scanners:
             raise ValueError("No scanners have been added.")
         
@@ -692,3 +692,33 @@ class OutputGuard(InputGuard):
         
         return self._make_request(json.dumps(request_body), url, async_mode=is_async, callback=callback)
     
+class InputPackedGuard(InputGuard):
+    """
+    InputGuard is a subclass of Guard that provides input validation and scanning functionality for prompts and files.
+    Args:
+        API_KEY (str): The API key used for authentication.
+        PROJECT_ID (str): The project identifier.
+        remote_addr (str, optional): The remote address of the TS API. Defaults to REMOTE_TS_API_ADDRESS.
+        fail_fast (bool, optional): Whether to fail fast on errors. Defaults to True.
+    Methods:
+        scan(prompt: str, files: List[str]=None, is_async=False, callback: Callback=None) -> Union[ScannerResult, Any]:
+            Scans the provided prompt and/or files using the configured scanners.
+            Args:
+                prompt (str): The input prompt to scan.
+                files (List[str], optional): List of file paths to scan. Defaults to None.
+                is_async (bool, optional): Whether to perform the scan asynchronously. Defaults to False.
+                callback (Callback, optional): Callback function to be called with the result if async. Defaults to None.
+            Returns:
+                Union[ScannerResult, Any]: The result of the scan, or the async task if is_async is True.
+            Raises:
+                ValueError: If no scanners have been added, or if neither prompt nor files are provided.
+                AssertionError: If files is not a list of strings.
+    """
+
+    def __init__(self, API_KEY=None, PROJECT_ID=None, remote_addr=None, fail_fast=True):
+        super().__init__(API_KEY, PROJECT_ID, remote_addr, fail_fast=fail_fast)
+        
+
+class OutputPackedGuard(OutputGuard):
+    def __init__(self, API_KEY=None, PROJECT_ID=None, remote_addr=None, fail_fast=True):
+        super().__init__(API_KEY, PROJECT_ID, remote_addr, fail_fast=fail_fast)

@@ -1,4 +1,4 @@
-from .guard import Scanner, Guard, InputGuard, OutputGuard, ScannerResult
+from .guard import Scanner, Guard, InputGuard, OutputGuard, ScannerResult, InputPackedGuard, OutputPackedGuard
 from ._exceptions import APIStatusError
 
 __all__ = [
@@ -7,5 +7,7 @@ __all__ = [
     'InputGuard', 
     'OutputGuard',
     'ScannerResult',
-    'APIStatusError'
+    'APIStatusError',
+    'InputPackedGuard',
+    'OutputPackedGuard'
     ]
