@@ -9,6 +9,7 @@ class ScannerResult(BaseModel):
     validity: Dict[str, bool]
     files: Optional[Dict[str, List[str]]] = None
     nested_scanners: Optional[Dict[str, Any]] = None
+    sanitized_output: Optional[str] = None
 
 class Scanner(BaseModel):
     # tag: str

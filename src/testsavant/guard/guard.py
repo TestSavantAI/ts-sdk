@@ -111,7 +111,7 @@ class Guard:
         Args:
             scanner (Scanner): The scanner instance to be added.
         """
-        assert isinstance(scanner, Scanner), "Scanner must be an instance of Scanner class."
+        assert isinstance(scanner, Scanner), f"Scanner must be an instance of Scanner class, got {type(scanner)}"
         if self.scanners is None:
             self.scanners = []
         self.scanners.append(scanner)
@@ -541,7 +541,7 @@ class InputGuard(Guard):
                 AssertionError: If files is not a list of strings.
     """
 
-    def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
+    def __init__(self, API_KEY=None, PROJECT_ID=None, remote_addr=None, fail_fast=True):
         """
         Initializes the Guard class with the provided API key, project ID, and optional parameters.
         Args:
@@ -550,7 +550,17 @@ class InputGuard(Guard):
             remote_addr (str, optional): The remote address of the TS API. Defaults to REMOTE_TS_API_ADDRESS.
             fail_fast (bool, optional): If True, initialization will fail immediately on errors. Defaults to True.
         """
+        if API_KEY is None:
+            API_KEY = os.environ.get("TEST_SAVANT_API_KEY")
+        if PROJECT_ID is None:
+            PROJECT_ID = os.environ.get("TEST_SAVANT_PROJECT_ID")
+        if API_KEY is None:
+            raise ValueError("API_KEY must be provided either as an argument or via the TEST_SAVANT_API_KEY environment variable.")
+        if PROJECT_ID is None:
+            raise ValueError("PROJECT_ID must be provided either as an argument or via the TEST_SAVANT_PROJECT_ID environment variable.")
 
+        if remote_addr is None:
+            remote_addr = os.environ.get("TEST_SAVANT_REMOTE_ADDR", REMOTE_TS_API_ADDRESS)
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
         self.remote_addr = remote_addr
 
@@ -574,6 +584,7 @@ class InputGuard(Guard):
             AssertionError: If files is not a list of strings.
         """
 
+        assert isinstance(prompt, str), f"Prompt must be a string, got {type(prompt)}"
         if not self.scanners:
             raise ValueError("No scanners have been added.")
         
@@ -617,7 +628,7 @@ class OutputGuard(InputGuard):
                 ValueError: If no scanners have been added or if required input prompt is missing.
     """
 
-    def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
+    def __init__(self, API_KEY=None, PROJECT_ID=None, remote_addr=None, fail_fast=True):
         """
         Initializes the Guard class with API credentials and configuration options.
         Args:
@@ -626,7 +637,16 @@ class OutputGuard(InputGuard):
             remote_addr (str, optional): The remote API address. Defaults to REMOTE_TS_API_ADDRESS.
             fail_fast (bool, optional): If True, initialization will fail immediately on errors. Defaults to True.
         """
-
+        if API_KEY is None:
+            API_KEY = os.environ.get("TEST_SAVANT_API_KEY")
+        if PROJECT_ID is None:
+            PROJECT_ID = os.environ.get("TEST_SAVANT_PROJECT_ID")
+        if API_KEY is None:
+            raise ValueError("API_KEY must be provided either as an argument or via the TEST_SAVANT_API_KEY environment variable.")
+        if PROJECT_ID is None:
+            raise ValueError("PROJECT_ID must be provided either as an argument or via the TEST_SAVANT_PROJECT_ID environment variable.")
+        if remote_addr is None:
+            remote_addr = os.environ.get("TEST_SAVANT_REMOTE_ADDR", REMOTE_TS_API_ADDRESS)
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
         self.remote_addr = remote_addr
         
