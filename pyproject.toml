@@ -1,6 +1,6 @@
 [project]
 name = "testsavant-sdk"
-version = "0.0.1"
+version = "0.0.3"
 license = "Apache-2.0"
 authors = [
   { name="Test Savant SDK", email="support@testsavant.ai" },

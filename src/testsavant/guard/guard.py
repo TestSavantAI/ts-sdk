@@ -80,7 +80,7 @@ class Guard:
     Exception
         For failed API requests or file operations.
     """
-    def __init__(self, API_KEY, PROJECT_ID, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
+    def __init__(self, API_KEY, PROJECT_ID=None, remote_addr=REMOTE_TS_API_ADDRESS, fail_fast=True):
         """        
         scan_mode : str
             "input": analyzes prompts sent to the llm
@@ -240,7 +240,6 @@ class Guard:
                     'x-api-key': self.API_KEY,
                     'Content-Type': 'application/json'
                 },
-                async_mode=True,
                 callback=callback
             )
         response = requests.post(
@@ -553,12 +552,10 @@ class InputGuard(Guard):
         if API_KEY is None:
             API_KEY = os.environ.get("TEST_SAVANT_API_KEY")
         if PROJECT_ID is None:
-            PROJECT_ID = os.environ.get("TEST_SAVANT_PROJECT_ID")
+            PROJECT_ID = os.environ.get("TEST_SAVANT_PROJECT_ID", None)
         if API_KEY is None:
             raise ValueError("API_KEY must be provided either as an argument or via the TEST_SAVANT_API_KEY environment variable.")
-        if PROJECT_ID is None:
-            raise ValueError("PROJECT_ID must be provided either as an argument or via the TEST_SAVANT_PROJECT_ID environment variable.")
-
+        
         if remote_addr is None:
             remote_addr = os.environ.get("TEST_SAVANT_REMOTE_ADDR", REMOTE_TS_API_ADDRESS)
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
@@ -640,11 +637,9 @@ class OutputGuard(InputGuard):
         if API_KEY is None:
             API_KEY = os.environ.get("TEST_SAVANT_API_KEY")
         if PROJECT_ID is None:
-            PROJECT_ID = os.environ.get("TEST_SAVANT_PROJECT_ID")
+            PROJECT_ID = os.environ.get("TEST_SAVANT_PROJECT_ID", None)
         if API_KEY is None:
             raise ValueError("API_KEY must be provided either as an argument or via the TEST_SAVANT_API_KEY environment variable.")
-        if PROJECT_ID is None:
-            raise ValueError("PROJECT_ID must be provided either as an argument or via the TEST_SAVANT_PROJECT_ID environment variable.")
         if remote_addr is None:
             remote_addr = os.environ.get("TEST_SAVANT_REMOTE_ADDR", REMOTE_TS_API_ADDRESS)
         super().__init__(API_KEY, PROJECT_ID, remote_addr,fail_fast=fail_fast)
