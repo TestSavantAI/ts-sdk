@@ -1,26 +1,18 @@
-from testsavant.guard import TSGuard, Scanner, TSGuardInput, ScannerResult
+from testsavant.guard import Scanner, InputGuard, ScannerResult
 from testsavant.guard.input_scanners import PromptInjection
 import os
 import asyncio
+import dotenv
+dotenv.load_dotenv()
 
 
 def dummy_llm(input):
     return input
 
-long_article = open("docs/article.txt", "r").read()
+long_article = "Once upon a time, there was a very long article that needed to be processed by the InputGuard system. This article contained various pieces of information, some of which were sensitive and needed to be anonymized before being sent to the language model. The InputGuard system was designed to scan the input for any sensitive data and either redact it or replace it with fake data, depending on the configuration. This ensured that the privacy of individuals was maintained while still allowing the language model to perform its tasks effectively."
+ts_api = InputGuard()
 
-os.environ["TEST_SAVANT_API_KEY"] = "f9c18a9102aa91ba16fd4fb5061e294673718e2be82da800" 
-api_key = os.environ.get("TEST_SAVANT_API_KEY")
-assert api_key is not None, "Please set TEST_SAVANT_API_KEY environment variable"
-
-ts_api = TSGuardInput(
-    API_KEY=api_key,
-    PROJECT_ID="3409d5dc-113a-402e-9884-47e72667eeb4",
-    # remote_addr="https://api.testsavant.ai"
-    remote_addr="http://localhost:8080"
-)
-
-prompt_injection = PromptInjection(tag="small", threshold=0.5)
+prompt_injection = PromptInjection(tag="base", threshold=0.5)
 ts_api.add_scanner(prompt_injection)
 
 prompts = [
@@ -30,16 +22,16 @@ prompts = [
 ]
 
 async def call_back(result: ScannerResult):
-    print(result.is_valid)
+    print(f"Result from callback: {result.is_valid}")
 
-print(ts_api.scan(prompts[0], sync_mode=True))
+print(f"Results from sync calls:", ts_api.scan(prompts[0], is_async=False).is_valid)
 
 # for prompt in prompts:
-result = asyncio.run(ts_api.scan(prompts[0], sync_mode=False))
+result = asyncio.run(ts_api.scan(prompts[0], is_async=True))
 if result.is_valid:
     print("Prompt is valid")
 else:
     print("Prompt is invalid")
 
 
-asyncio.run(ts_api.scan(prompts[0], sync_mode=False, callback=call_back))
+asyncio.run(ts_api.scan(prompts[0], is_async=True, callback=call_back))
