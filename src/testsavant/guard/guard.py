@@ -581,7 +581,6 @@ class InputGuard(Guard):
             AssertionError: If files is not a list of strings.
         """
 
-        assert isinstance(prompt, str), f"Prompt must be a string, got {type(prompt)}"
         if not self.scanners:
             raise ValueError("No scanners have been added.")
         
