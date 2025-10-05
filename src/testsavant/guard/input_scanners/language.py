@@ -12,5 +12,5 @@ class Language(Scanner):
     valid_languages: Optional[list[Literal[
         "ja", "nl", "ar", "pl", "de", "it", "pt", "tr", "es", "hi",
         "el", "ur", "bg", "en", "fr", "zh", "ru", "th", "sw", "vi"
-    ]]] = None
+    ]]] = ["en"]
     result: Optional[ScannerResult] = None
