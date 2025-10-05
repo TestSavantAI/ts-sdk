@@ -10,4 +10,5 @@ class Code(Scanner):
     tag: Literal["base"]
     languages: Optional[list[str]] = None
     is_blocked: Optional[bool] = None
+    mode: Optional[Literal['whitelist', 'blacklist']] = 'whitelist'
     result: Optional[ScannerResult] = None
