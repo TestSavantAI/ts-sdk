@@ -7,7 +7,7 @@ Test Savant SDK provides tools and utilities for interacting with the Test Savan
 Install the SDK using pip:
 
 ```bash
-pip install test-savant-sdk
+pip install testsavant-sdk
 ```
 
 ## Usage
