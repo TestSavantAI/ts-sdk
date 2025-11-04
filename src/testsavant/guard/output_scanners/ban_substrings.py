@@ -11,3 +11,4 @@ class BanSubstrings(Scanner):
     redact: Optional[bool] = None
     contains_all: Optional[bool] = None
     result: Optional[ScannerResult] = None
+    match_type: Literal["word", "str"] = "str"

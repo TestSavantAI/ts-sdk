@@ -6,7 +6,7 @@ class JSON(Scanner):
     """
         For all available tags, check: https://docs.testsavant.ai/docs/v1/python/output-scanners
     """
-    threshold: Optional[confloat(ge=0.0, le=1.0)] = None
     tag: Literal["default"] = "default"
-    repair: Optional[bool] = None
+    repair: Optional[bool] = False
     result: Optional[ScannerResult] = None
+    num_elements: int

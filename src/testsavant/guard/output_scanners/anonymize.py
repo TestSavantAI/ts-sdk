@@ -1,7 +1,6 @@
 from pydantic import confloat
 from typing import Literal, Optional, Dict, List, Annotated, Any
-from .base_scanner import Scanner, ScannerResult
-import json
+from ..input_scanners.base_scanner import Scanner, ScannerResult
 
 class Anonymize(Scanner):
     """

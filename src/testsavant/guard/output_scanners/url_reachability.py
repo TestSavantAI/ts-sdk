@@ -9,3 +9,4 @@ class URLReachability(Scanner):
     threshold: Optional[confloat(ge=0.0, le=1.0)] = None
     tag: Literal["default"] = "default"
     result: Optional[ScannerResult] = None
+    repair: Optional[bool] = None

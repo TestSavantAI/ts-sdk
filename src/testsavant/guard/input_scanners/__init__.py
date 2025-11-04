@@ -15,6 +15,7 @@ from .sentiment import Sentiment
 from .token_limit import TokenLimit
 from .toxicity import Toxicity
 from .nsfw import NSFW
+from .llm_classifier import LLM
 
 __all__ = [
     "Scanner",
@@ -35,4 +36,5 @@ __all__ = [
     "TokenLimit",
     "Toxicity",
     "NSFW",
+    "LLM"
 ]
