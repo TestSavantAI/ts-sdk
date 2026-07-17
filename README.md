@@ -34,6 +34,80 @@ input_guard = InputGuard(API_KEY=api_key, PROJECT_ID=project_id)
 output_guard = OutputGuard(API_KEY=api_key, PROJECT_ID=project_id)
 ```
 
+### Hyperparameter Optimization
+
+The SDK uses an Optuna-based optimizer for tuning scanner configurations against your own dataset. For discrete search spaces, the optimizer starts with a broad unique-config exploration phase before it begins exploiting promising regions.
+
+```python
+from testsavant.guard import create_optimizer
+
+search_space = {
+    "threshold": [(round(i * 0.025, 3), 1.0) for i in range(41)],
+    "chunk_size": [(50, 0.1), (150, 0.5), (250, 0.9), (350, 1.0)],
+    "overlap_size": [(10, 1.0), (20, 0.8), (30, 0.5), (40, 0.3), (50, 0.1)],
+}
+
+def score_fn(config, batch):
+    threshold = config["threshold"]
+    chunk_size = config["chunk_size"]
+    overlap_size = config["overlap_size"]
+
+    # Replace this with your own mini-batch evaluator.
+    return threshold + chunk_size / 1000 - overlap_size / 1000
+
+optimizer = create_optimizer("optuna", top_k=5, seed=42)
+
+top_configs = optimizer.optimize(
+    search_space=search_space,
+    score_fn=score_fn,
+    sample_batch_fn=lambda: [],
+    on_step=lambda payload: print(
+        f"step={payload['step']}/{payload['total_steps']} top={payload['top_results'][0]}"
+    ),
+    epochs=10,
+    steps_per_epoch=100,
+)
+```
+
+Use `preference_mode="objective"` when preference weights should influence the final ranking, or `preference_mode="prior"` when weights should only guide search.
+
+The optional `on_step` callback runs once per optimization step. Its payload includes:
+- `step`, `total_steps`, `epoch`, and `step_in_epoch`
+- `total_evals`
+- `candidate_results`: the configs scored in that step
+- `top_results`: the current best configs under the chosen ranking mode
+
+### Generic Binary Guardrail Tuning
+
+Use `BinaryGuardrailTuner` when you want to optimize any guardrail that classifies inputs as valid or invalid.
+
+```python
+from testsavant.guard import BinaryGuardrailTuner
+from testsavant.guard.input_scanners import PromptInjection
+
+tuner = BinaryGuardrailTuner.from_input_scanner_class(
+    scanner_cls=PromptInjection,
+    optimizer_name="optuna",
+    fixed_scanner_kwargs={},
+)
+
+result = tuner.fit(
+    train_x=["safe", "unsafe request"],
+    train_y=[True, False],
+    epochs=5,
+    batch_size=2,
+)
+
+print(result.best_config)
+print(result.best_eval_result.to_dict())
+```
+
+`train_y` and `test_y` use `True` for valid inputs and `False` for invalid inputs. If `test_x` and `test_y` are omitted, the tuner reports metrics on the train set. The tuner reports effectiveness score, F1 score, recall, specificity, precision, false positive rate, false negative rate, accuracy, and confusion-matrix counts.
+
+Scanner classes can define their own optimization spaces and defaults, so notebook users only need to provide data. The default optimizer is Optuna with a startup exploration phase that covers diverse regions of the discrete search space.
+
+If a scanner requires fixed non-optimized arguments, pass them with `fixed_scanner_kwargs`. For example, `BanTopics` would need `{"topics": [...], "mode": "blacklist"}`.
+
 ### Scanning Prompts (Input Guard)
 
 Use `InputGuard` to scan user inputs for potential risks before sending them to your LLM.
