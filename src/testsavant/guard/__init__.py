@@ -2,11 +2,9 @@ from .guard import Scanner, Guard, InputGuard, OutputGuard, ScannerResult
 from ._exceptions import APIStatusError
 from .optimization import (
     RunningStat,
-    DiscreteBanditOptimizer,
     OptunaOptimizer,
     build_discrete_configs,
     create_optimizer,
-    discrete_bandit_optimize,
 )
 from .tuning import (
     BinaryClassificationMetrics,
@@ -25,11 +23,9 @@ __all__ = [
     'ScannerResult',
     'APIStatusError',
     'RunningStat',
-    'DiscreteBanditOptimizer',
     'OptunaOptimizer',
     'build_discrete_configs',
     'create_optimizer',
-    'discrete_bandit_optimize',
     'BinaryClassificationMetrics',
     'BinaryGuardrailTuner',
     'GuardrailCandidateResult',

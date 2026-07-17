@@ -1,11 +1,12 @@
 from dataclasses import dataclass
+import inspect
 import math
 import random
 from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Type
 
 from .guard import InputGuard
 from .input_scanners import Scanner
-from .optimization import ConfigDict, DiscreteBanditOptimizer, SearchSpace, create_optimizer
+from .optimization import ConfigDict, OptunaOptimizer, SearchSpace, create_optimizer
 
 
 PredictValidFn = Callable[[ConfigDict, Sequence[str]], Sequence[bool]]
@@ -21,6 +22,7 @@ class ConfigOptimizer(Protocol):
         steps_per_epoch: int = 100,
         sample_batch_fn: Optional[Callable[[], Any]] = None,
         on_step: Optional[Callable[[Dict[str, Any]], None]] = None,
+        should_stop: Optional[Callable[[Dict[str, Any]], bool]] = None,
         top_k: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         ...
@@ -103,26 +105,20 @@ class GuardrailCandidateResult:
 @dataclass
 class GuardrailFitResult:
     best_config: ConfigDict
-    best_train_metrics: BinaryClassificationMetrics
-    best_report_metrics: BinaryClassificationMetrics
-    report_split_name: str
+    best_eval_result: BinaryClassificationMetrics
     candidate_results: List[GuardrailCandidateResult]
     epochs: int
     batch_size: int
     steps_per_epoch: int
-    best_test_metrics: Optional[BinaryClassificationMetrics] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "best_config": self.best_config,
-            "best_train_metrics": self.best_train_metrics.to_dict(),
-            "best_report_metrics": self.best_report_metrics.to_dict(),
-            "report_split_name": self.report_split_name,
+            "best_eval_result": self.best_eval_result.to_dict(),
             "candidate_results": [candidate.to_dict() for candidate in self.candidate_results],
             "epochs": self.epochs,
             "batch_size": self.batch_size,
             "steps_per_epoch": self.steps_per_epoch,
-            "best_test_metrics": self.best_test_metrics.to_dict() if self.best_test_metrics is not None else None,
         }
 
 
@@ -212,14 +208,14 @@ class BinaryGuardrailTuner:
     ) -> None:
         self.search_space = search_space
         self.predict_valid_fn = predict_valid_fn
-        self.optimizer = optimizer or DiscreteBanditOptimizer(top_k=top_k, seed=random_state)
+        self.optimizer = optimizer or OptunaOptimizer(top_k=top_k, seed=random_state)
         self.top_k = top_k
         self.random_state = random_state
 
     @staticmethod
     def resolve_optimizer(
         optimizer: Optional[ConfigOptimizer] = None,
-        optimizer_name: str = "bandit",
+        optimizer_name: str = "optuna",
         top_k: int = 10,
         random_state: int = 42,
     ) -> ConfigOptimizer:
@@ -264,7 +260,7 @@ class BinaryGuardrailTuner:
         scanner_cls: Type[Scanner],
         fixed_scanner_kwargs: Optional[Dict[str, Any]] = None,
         optimizer: Optional[ConfigOptimizer] = None,
-        optimizer_name: str = "bandit",
+        optimizer_name: str = "optuna",
         top_k: Optional[int] = None,
         random_state: int = 42,
         API_KEY: Optional[str] = None,
@@ -323,6 +319,7 @@ class BinaryGuardrailTuner:
         test_y: Optional[Sequence[bool]] = None,
         epochs: int = 10,
         batch_size: int = 32,
+        patience: int = 2,
         on_step: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> GuardrailFitResult:
         self._validate_dataset(train_x, train_y, "train dataset")
@@ -335,10 +332,45 @@ class BinaryGuardrailTuner:
 
         if batch_size <= 0:
             raise ValueError("batch_size must be greater than 0.")
+        if patience < 1:
+            raise ValueError("patience must be at least 1.")
 
         steps_per_epoch = max(1, math.ceil(len(train_x) / batch_size))
         rng = random.Random(self.random_state)
         train_examples = list(zip(train_x, train_y))
+        best_test_selection_score = float("-inf")
+        no_improvement_steps = 0
+
+        def enrich_step_payload(step_payload: Dict[str, Any]) -> Dict[str, Any]:
+            enriched_payload = dict(step_payload)
+            if has_test_set and enriched_payload.get("top_results"):
+                best_config = dict(enriched_payload["top_results"][0]["config"])
+                test_metrics = self.evaluate(best_config, test_x, test_y)
+                enriched_payload["best_test_metrics"] = test_metrics.to_dict()
+                enriched_payload["best_test_selection_score"] = test_metrics.selection_score
+            return enriched_payload
+
+        def step_callback(step_payload: Dict[str, Any]) -> None:
+            enriched_payload = enrich_step_payload(step_payload)
+            if on_step is not None:
+                on_step(enriched_payload)
+
+        def should_stop(step_payload: Dict[str, Any]) -> bool:
+            nonlocal best_test_selection_score, no_improvement_steps
+
+            if not has_test_set or not step_payload.get("top_results"):
+                return False
+
+            enriched_payload = enrich_step_payload(step_payload)
+            current_test_score = float(enriched_payload["best_test_selection_score"])
+
+            if current_test_score > best_test_selection_score:
+                best_test_selection_score = current_test_score
+                no_improvement_steps = 0
+                return False
+
+            no_improvement_steps += 1
+            return no_improvement_steps >= patience
 
         def sample_batch_fn() -> List[Any]:
             if len(train_examples) <= batch_size:
@@ -352,15 +384,20 @@ class BinaryGuardrailTuner:
             metrics = self.evaluate(config, batch_inputs, batch_labels)
             return metrics.selection_score
 
-        optimization_results = self.optimizer.optimize(
-            search_space=self.search_space,
-            score_fn=score_fn,
-            epochs=epochs,
-            steps_per_epoch=steps_per_epoch,
-            sample_batch_fn=sample_batch_fn,
-            on_step=on_step,
-            top_k=self.top_k,
-        )
+        optimize_kwargs = {
+            "search_space": self.search_space,
+            "score_fn": score_fn,
+            "epochs": epochs,
+            "steps_per_epoch": steps_per_epoch,
+            "sample_batch_fn": sample_batch_fn,
+            "on_step": step_callback,
+            "top_k": self.top_k,
+        }
+        optimize_signature = inspect.signature(self.optimizer.optimize)
+        if "should_stop" in optimize_signature.parameters:
+            optimize_kwargs["should_stop"] = should_stop
+
+        optimization_results = self.optimizer.optimize(**optimize_kwargs)
 
         candidate_results: List[GuardrailCandidateResult] = []
         for optimization_result in optimization_results:
@@ -381,22 +418,21 @@ class BinaryGuardrailTuner:
         best_candidate = max(
             candidate_results,
             key=lambda candidate: (
-                candidate.report_metrics.selection_score,
                 candidate.train_metrics.selection_score,
                 candidate.optimization_result.get("objective_score", float("-inf")),
+                candidate.report_metrics.selection_score,
             ),
         )
 
+        best_eval_result = best_candidate.test_metrics or best_candidate.train_metrics
+
         return GuardrailFitResult(
             best_config=best_candidate.config,
-            best_train_metrics=best_candidate.train_metrics,
-            best_report_metrics=best_candidate.report_metrics,
-            report_split_name="test" if has_test_set else "train",
+            best_eval_result=best_eval_result,
             candidate_results=candidate_results,
             epochs=epochs,
             batch_size=batch_size,
             steps_per_epoch=steps_per_epoch,
-            best_test_metrics=best_candidate.test_metrics,
         )
 
 

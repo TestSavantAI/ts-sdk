@@ -34,12 +34,12 @@ input_guard = InputGuard(API_KEY=api_key, PROJECT_ID=project_id)
 output_guard = OutputGuard(API_KEY=api_key, PROJECT_ID=project_id)
 ```
 
-### Discrete Hyperparameter Optimization
+### Hyperparameter Optimization
 
-The SDK includes a dependency-free discrete stochastic bandit optimizer for tuning scanner configurations against your own dataset.
+The SDK uses an Optuna-based optimizer for tuning scanner configurations against your own dataset. For discrete search spaces, the optimizer starts with a broad unique-config exploration phase before it begins exploiting promising regions.
 
 ```python
-from testsavant.guard import discrete_bandit_optimize
+from testsavant.guard import create_optimizer
 
 search_space = {
     "threshold": [(round(i * 0.025, 3), 1.0) for i in range(41)],
@@ -55,7 +55,9 @@ def score_fn(config, batch):
     # Replace this with your own mini-batch evaluator.
     return threshold + chunk_size / 1000 - overlap_size / 1000
 
-top_configs = discrete_bandit_optimize(
+optimizer = create_optimizer("optuna", top_k=5, seed=42)
+
+top_configs = optimizer.optimize(
     search_space=search_space,
     score_fn=score_fn,
     sample_batch_fn=lambda: [],
@@ -64,14 +66,10 @@ top_configs = discrete_bandit_optimize(
     ),
     epochs=10,
     steps_per_epoch=100,
-    configs_per_step=8,
-    preference_strength=0.02,
-    preference_mode="objective",
-    top_k=5,
 )
 ```
 
-Use `preference_mode="objective"` when preference weights should influence the final ranking, or `preference_mode="prior"` when weights should only guide exploration.
+Use `preference_mode="objective"` when preference weights should influence the final ranking, or `preference_mode="prior"` when weights should only guide search.
 
 The optional `on_step` callback runs once per optimization step. Its payload includes:
 - `step`, `total_steps`, `epoch`, and `step_in_epoch`
@@ -89,7 +87,7 @@ from testsavant.guard.input_scanners import PromptInjection
 
 tuner = BinaryGuardrailTuner.from_input_scanner_class(
     scanner_cls=PromptInjection,
-    optimizer_name="bandit",  # default
+    optimizer_name="optuna",
     fixed_scanner_kwargs={},
 )
 
@@ -101,12 +99,12 @@ result = tuner.fit(
 )
 
 print(result.best_config)
-print(result.best_report_metrics.to_dict())
+print(result.best_eval_result.to_dict())
 ```
 
 `train_y` and `test_y` use `True` for valid inputs and `False` for invalid inputs. If `test_x` and `test_y` are omitted, the tuner reports metrics on the train set. The tuner reports effectiveness score, F1 score, recall, specificity, precision, false positive rate, false negative rate, accuracy, and confusion-matrix counts.
 
-Scanner classes can define their own optimization spaces and defaults, so notebook users only need to provide data. The default optimizer is the SDK's discrete bandit optimizer, and you can switch to Optuna with `optimizer_name="optuna"` when Optuna is installed.
+Scanner classes can define their own optimization spaces and defaults, so notebook users only need to provide data. The default optimizer is Optuna with a startup exploration phase that covers diverse regions of the discrete search space.
 
 If a scanner requires fixed non-optimized arguments, pass them with `fixed_scanner_kwargs`. For example, `BanTopics` would need `{"topics": [...], "mode": "blacklist"}`.
 
