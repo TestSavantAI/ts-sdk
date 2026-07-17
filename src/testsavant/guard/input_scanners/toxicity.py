@@ -8,5 +8,4 @@ class Toxicity(Scanner):
     """
     threshold: Optional[confloat(ge=0.0, le=1.0)] = None
     tag: Literal["base"]
-    # min_toxicity_level: Optional[Literal["low", "mild", "extreme"]] = None
     result: Optional[ScannerResult] = None

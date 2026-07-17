@@ -9,6 +9,76 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 PreferenceOption = Tuple[Any, float]
 SearchSpace = Dict[str, Sequence[PreferenceOption]]
 ConfigDict = Dict[str, Any]
+ScannerOptimizationSpec = Dict[str, Any]
+
+
+_DEFAULT_SCANNER_OPTIMIZATION_SPEC: ScannerOptimizationSpec = {
+    "search_space": {
+        "threshold": [(round(i * 0.025, 3), 1.0) for i in range(41)],
+        "chunk_size": [
+            (50, 0.1),
+            (75, 0.2),
+            (100, 0.3),
+            (125, 0.4),
+            (150, 0.5),
+            (175, 0.6),
+            (200, 0.7),
+            (225, 0.8),
+            (250, 0.9),
+            (275, 1.0),
+            (300, 1.0),
+            (325, 1.0),
+            (350, 1.0),
+        ],
+        "overlap": [
+            (10, 1.0),
+            (20, 0.8),
+            (30, 0.5),
+            (40, 0.3),
+            (50, 0.1),
+        ],
+    },
+    "init_kwargs": {"tag": "base"},
+    "defaults": {
+        "epochs": 8,
+        "batch_size": 32,
+        "top_k": 10,
+    },
+}
+
+
+_SCANNER_OPTIMIZATION_SPECS: Dict[str, ScannerOptimizationSpec] = {
+    "default": _DEFAULT_SCANNER_OPTIMIZATION_SPEC,
+}
+
+
+def _get_scanner_identifier(scanner_cls: Any) -> str:
+    return f"{scanner_cls.__module__}.{scanner_cls.__name__}"
+
+
+def get_scanner_optimization_spec(scanner_cls: Any) -> ScannerOptimizationSpec:
+    scanner_name = _get_scanner_identifier(scanner_cls)
+    return _SCANNER_OPTIMIZATION_SPECS.get(scanner_name, _SCANNER_OPTIMIZATION_SPECS["default"])
+
+
+def get_scanner_optimization_search_space(scanner_cls: Any) -> SearchSpace:
+    return dict(get_scanner_optimization_spec(scanner_cls)["search_space"])
+
+
+def get_scanner_optimization_defaults(scanner_cls: Any) -> Dict[str, Any]:
+    return dict(get_scanner_optimization_spec(scanner_cls).get("defaults", {}))
+
+
+def build_optimized_scanner_instance(
+    scanner_cls: Any,
+    config: ConfigDict,
+    fixed_kwargs: Optional[Dict[str, Any]] = None,
+) -> Any:
+    params = dict(get_scanner_optimization_spec(scanner_cls).get("init_kwargs", {}))
+    if fixed_kwargs is not None:
+        params.update(fixed_kwargs)
+    params.update(config)
+    return scanner_cls(**params)
 
 
 @dataclass

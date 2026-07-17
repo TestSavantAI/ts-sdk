@@ -1,6 +1,12 @@
 from pydantic import BaseModel, Field
-from typing import ClassVar, Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any
 import json
+
+from ..optimization import (
+    build_optimized_scanner_instance,
+    get_scanner_optimization_defaults,
+    get_scanner_optimization_search_space,
+)
 
 class ScannerResult(BaseModel):
     sanitized_prompt: Optional[str] = None
@@ -12,16 +18,13 @@ class ScannerResult(BaseModel):
     sanitized_output: Optional[str] = None
 
 class Scanner(BaseModel):
-    # tag: str
-    optimization_search_space: ClassVar[Optional[Dict[str, List[Any]]]] = None
-    optimization_init_kwargs: ClassVar[Dict[str, Any]] = {}
-    optimization_defaults: ClassVar[Dict[str, Any]] = {}
-
     tag: str = Field(
         ..., 
         description="Scanner model tag. For available models, see: https://docs.testsavant.ai"
     )
     result: Optional[ScannerResult] = None
+    chunk_size: int = 300
+    overlap: int = 20
 
     def _serialize_request(self) -> Dict:
         class_name = self.__class__.__name__
@@ -54,13 +57,11 @@ class Scanner(BaseModel):
 
     @classmethod
     def get_optimization_search_space(cls) -> Dict[str, List[Any]]:
-        if cls.optimization_search_space is None:
-            raise ValueError(f"{cls.__name__} does not define an optimization search space.")
-        return dict(cls.optimization_search_space)
+        return get_scanner_optimization_search_space(cls)
 
     @classmethod
     def get_optimization_defaults(cls) -> Dict[str, Any]:
-        return dict(cls.optimization_defaults)
+        return get_scanner_optimization_defaults(cls)
 
     @classmethod
     def build_optimized_instance(
@@ -68,8 +69,4 @@ class Scanner(BaseModel):
         config: Dict[str, Any],
         fixed_kwargs: Optional[Dict[str, Any]] = None,
     ) -> "Scanner":
-        params = dict(cls.optimization_init_kwargs)
-        if fixed_kwargs is not None:
-            params.update(fixed_kwargs)
-        params.update(config)
-        return cls(**params)
+        return build_optimized_scanner_instance(cls, config, fixed_kwargs=fixed_kwargs)

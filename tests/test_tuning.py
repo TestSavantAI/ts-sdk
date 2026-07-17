@@ -10,7 +10,7 @@ fake_httpx.Client = object
 sys.modules.setdefault("httpx", fake_httpx)
 
 from testsavant.guard import BinaryGuardrailTuner, compute_binary_classification_metrics, create_optimizer
-from testsavant.guard.input_scanners import BanTopics, PromptInjection
+from testsavant.guard.input_scanners import BanTopics, NSFW, PromptInjection
 
 
 def test_compute_binary_classification_metrics_uses_invalid_as_positive_class():
@@ -162,10 +162,24 @@ def test_binary_guardrail_tuner_reports_on_train_when_test_set_is_absent():
     assert result.best_report_metrics.effectiveness_score == 1.0
 
 
-def test_prompt_injection_defines_scanner_owned_optimization_spec():
+def test_prompt_injection_uses_optimization_registry_spec():
     search_space = PromptInjection.get_optimization_search_space()
     defaults = PromptInjection.get_optimization_defaults()
     scanner = PromptInjection.build_optimized_instance(
+        {"threshold": 0.5, "chunk_size": 300, "overlap": 10}
+    )
+
+    assert "threshold" in search_space
+    assert "chunk_size" in search_space
+    assert "overlap" in search_space
+    assert defaults["batch_size"] == 32
+    assert scanner.tag == "base"
+
+
+def test_nsfw_uses_optimization_registry_spec():
+    search_space = NSFW.get_optimization_search_space()
+    defaults = NSFW.get_optimization_defaults()
+    scanner = NSFW.build_optimized_instance(
         {"threshold": 0.5, "chunk_size": 300, "overlap": 10}
     )
 
