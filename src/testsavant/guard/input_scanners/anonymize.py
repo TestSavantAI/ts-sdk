@@ -1,7 +1,8 @@
 from pydantic import confloat
-from typing import Literal, Optional, Dict, List, Annotated, Any
+from typing import Literal, Optional, List
 from .base_scanner import Scanner, ScannerResult
-import json
+from ..common.common import AnonymizeEntity
+
 
 class Anonymize(Scanner):
     """
@@ -12,6 +13,6 @@ class Anonymize(Scanner):
     tag: Literal["base"]
     result: Optional[ScannerResult] = None
     redact: bool = False
-    entities: Optional[Dict[str, Any]] = None
+    entities: Optional[List[AnonymizeEntity]] = None
 
 

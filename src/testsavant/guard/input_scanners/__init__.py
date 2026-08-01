@@ -1,6 +1,6 @@
 from .base_scanner import Scanner, ScannerResult
 from .prompt_injection import PromptInjection
-from .anonymize import Anonymize
+from .anonymize import Anonymize, AnonymizeEntity
 from .ban_code import BanCode
 from .ban_competitors import BanCompetitors
 from .ban_substrings import BanSubstrings
@@ -36,5 +36,6 @@ __all__ = [
     "TokenLimit",
     "Toxicity",
     "NSFW",
-    "LLM"
+    "LLM",
+    "AnonymizeEntity"
 ]
