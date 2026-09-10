@@ -1,11 +1,10 @@
 from typing import Literal, Optional
-from ..input_scanners.base_scanner import Scanner, ScannerResult
+from .base_scanner import Scanner, ScannerResult
 
-class LLM(Scanner):
+class LLMJudge(Scanner):
     """
         For all available tags, check: https://docs.testsavant.ai/docs/v1/python/input-scanners
     """
-    tag: Literal["default"] = "default"
-    instruction: str
+    tag: str = "default"
     result: Optional[ScannerResult] = None
     num_retry: Optional[int] = None
