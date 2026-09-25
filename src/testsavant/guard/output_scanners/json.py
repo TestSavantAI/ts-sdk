@@ -1,5 +1,5 @@
 from pydantic import confloat
-from typing import Literal, Optional
+from typing import Literal, Optional, List
 from ..input_scanners.base_scanner import Scanner, ScannerResult
 
 class JSON(Scanner):
@@ -9,4 +9,4 @@ class JSON(Scanner):
     tag: Literal["default"] = "default"
     repair: Optional[bool] = False
     result: Optional[ScannerResult] = None
-    num_elements: int
+    required_elements: Optional[List[str]] = None
