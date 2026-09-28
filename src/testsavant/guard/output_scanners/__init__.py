@@ -20,7 +20,7 @@ from .sentiment import Sentiment
 from .toxicity import Toxicity
 from .url_reachability import URLReachability
 from .nsfw import NSFW
-from .llm_classifier import LLM
+from .llm_judge import LLMJudge
 from .anonymize import Anonymize
 
 __all__ = [
@@ -47,5 +47,5 @@ __all__ = [
     "Toxicity",
     "URLReachability",
     "NSFW",
-    "LLM"
+    "LLMJudge"
  ]
