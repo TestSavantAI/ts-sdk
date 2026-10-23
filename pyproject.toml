@@ -1,17 +1,16 @@
 [project]
 name = "testsavant-sdk"
-version = "0.0.7"
+version = "0.1.0"
 license = "Apache-2.0"
 authors = [
   { name="Test Savant SDK", email="support@testsavant.ai" },
 ]
 description = "Test Savant SDK provides tools and utilities for interacting with the Test Savant platform, enabling seamless integration and development of AI applications."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
   "Typing :: Typed",
   "Intended Audience :: Developers",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",

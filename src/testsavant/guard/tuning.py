@@ -4,13 +4,15 @@ import math
 import random
 from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Type
 
-from .guard import InputGuard
+from .guard import Guardrail, InputGuard
+from .guardrails import GuardSpec
 from .input_scanners import Scanner
 from .optimization import ConfigDict, OptunaOptimizer, SearchSpace, create_optimizer
 
 
 PredictValidFn = Callable[[ConfigDict, Sequence[str]], Sequence[bool]]
 InputScannerFactory = Callable[[ConfigDict], Scanner]
+GuardrailFactory = Callable[[ConfigDict], GuardSpec]
 
 
 class ConfigOptimizer(Protocol):
@@ -224,6 +226,57 @@ class BinaryGuardrailTuner:
         return create_optimizer(optimizer_name, top_k=top_k, seed=random_state)
 
     @classmethod
+    def from_guardrail(
+        cls,
+        search_space: SearchSpace,
+        guardrail_factory: GuardrailFactory,
+        optimizer: Optional[ConfigOptimizer] = None,
+        top_k: int = 10,
+        random_state: int = 42,
+        API_KEY: Optional[str] = None,
+        PROJECT_ID: Optional[str] = None,
+        remote_addr: Optional[str] = None,
+        endpoint: Optional[str] = None,
+        fail_fast: bool = True,
+    ) -> "BinaryGuardrailTuner":
+        """Optimize a new unified GuardSpec subclass using the remote Guardrail API."""
+        def predict_valid_fn(config: ConfigDict, inputs: Sequence[str]) -> Sequence[bool]:
+            with Guardrail(
+                API_KEY=API_KEY, PROJECT_ID=PROJECT_ID,
+                remote_addr=remote_addr, endpoint=endpoint, fail_fast=fail_fast
+            ) as guard:
+                guard.add_guardrail(guardrail_factory(config))
+                return [guard.scan(text).is_valid for text in inputs]
+
+        return cls(search_space=search_space, predict_valid_fn=predict_valid_fn,
+                   optimizer=optimizer, top_k=top_k, random_state=random_state)
+
+    @classmethod
+    def from_guardrail_class(
+        cls,
+        guardrail_cls: Type[GuardSpec],
+        search_space: SearchSpace,
+        fixed_guardrail_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer: Optional[ConfigOptimizer] = None,
+        top_k: int = 10,
+        random_state: int = 42,
+        API_KEY: Optional[str] = None,
+        PROJECT_ID: Optional[str] = None,
+        remote_addr: Optional[str] = None,
+        endpoint: Optional[str] = None,
+        fail_fast: bool = True,
+    ) -> "BinaryGuardrailTuner":
+        """Create a unified guardrail tuner from its class and a search space."""
+        fixed_kwargs = dict(fixed_guardrail_kwargs or {})
+        return cls.from_guardrail(
+            search_space=search_space,
+            guardrail_factory=lambda config: guardrail_cls(**{**fixed_kwargs, **config}),
+            optimizer=optimizer, top_k=top_k, random_state=random_state,
+            API_KEY=API_KEY, PROJECT_ID=PROJECT_ID, remote_addr=remote_addr,
+            endpoint=endpoint, fail_fast=fail_fast,
+        )
+
+    @classmethod
     def from_input_scanner(
         cls,
         search_space: SearchSpace,
@@ -273,7 +326,11 @@ class BinaryGuardrailTuner:
         resolved_fixed_scanner_kwargs = dict(fixed_scanner_kwargs or {})
 
         return cls.from_input_scanner(
-            search_space=scanner_cls.get_optimization_search_space(),
+            search_space=(
+                scanner_cls.get_optimization_search_space()
+                if scanner_cls.optimization_search_space is not None
+                else {"threshold": [(round(i * 0.05, 2), 1.0) for i in range(21)]}
+            ),
             scanner_factory=lambda config: scanner_cls.build_optimized_instance(
                 config,
                 fixed_kwargs=resolved_fixed_scanner_kwargs,
